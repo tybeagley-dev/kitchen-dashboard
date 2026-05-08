@@ -1,36 +1,27 @@
 import { useState } from 'react'
-import { getWeekDays, getDayShort, isSameDay, getUpcomingEvents, getTodayKey, formatEventDate } from '../utils/dateUtils'
+import { getWeekDays, getDayShort, isSameDay, getTodayKey, formatEventDate } from '../utils/dateUtils'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 
 export default function Calendar({ now }) {
   const events      = useCalendarEvents()
   const weekDays    = getWeekDays(now)
-  const [selected, setSelected] = useState(null) // Date object or null
+  const [selected, setSelected] = useState(() => now)
 
   function handleDayClick(day) {
-    setSelected(prev => prev && isSameDay(prev, day) ? null : day)
+    setSelected(day)
   }
 
-  const displayed = selected
-    ? events.filter(e => {
-        const [y, m, d] = e.date.split('-').map(Number)
-        return isSameDay(new Date(y, m - 1, d), selected)
-      })
-    : getUpcomingEvents(events, now, 14)
+  const displayed = events.filter(e => {
+    const [y, m, d] = e.date.split('-').map(Number)
+    return isSameDay(new Date(y, m - 1, d), selected)
+  })
 
-  const emptyMsg = selected
-    ? `Nothing on ${getDayShort(selected)} the ${selected.getDate()}`
-    : 'Nothing coming up — enjoy the calm!'
+  const emptyMsg = `Nothing on ${getDayShort(selected)} the ${selected.getDate()}`
 
   return (
     <section className="card calendar-card">
       <div className="calendar-header-row">
         <h2 className="section-label">Calendar</h2>
-        {selected && (
-          <button className="cal-clear-btn" onClick={() => setSelected(null)}>
-            All upcoming
-          </button>
-        )}
       </div>
 
       <div className="week-strip">
