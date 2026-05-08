@@ -7,12 +7,13 @@ import { CONFIG } from '../config/config'
 export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
   const { routinesByChild, toggleRoutine, mode } = useRoutines(now)
   const { chores, loading } = useChores()
+  const timeLabel = now.getHours() < 12 ? 'Morning' : 'Evening'
 
   return (
     <section className="routines-section">
       <div className="routines-header">
         <h2 className="section-label">Daily Routines</h2>
-        <span className="schedule-badge">{SCHEDULE_LABELS[mode]}</span>
+        <span className="schedule-badge">{SCHEDULE_LABELS[mode]} · {timeLabel}</span>
       </div>
 
       <div
