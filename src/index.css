@@ -2151,3 +2151,139 @@ button {
   80%  { opacity: 1; }
   100% { transform: translateY(320px) rotate(var(--rotate)); opacity: 0; }
 }
+
+/* ── Weather Modal ───────────────────────────────────────────────────────── */
+.weather-modal {
+  width: min(680px, 94vw);
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 24px 24px 0;
+}
+
+.wm-location {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.wm-current {
+  text-align: center;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 16px;
+}
+
+.wm-current-main {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.wm-emoji    { font-size: 2.4rem; line-height: 1; }
+.wm-temp-big { font-size: 3rem; font-weight: 700; font-family: var(--font-display); line-height: 1; }
+
+.wm-current-label {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 4px 0 8px;
+}
+
+.wm-current-stats {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px 0;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.wm-dot { margin: 0 6px; opacity: 0.4; }
+
+.wm-body {
+  overflow-y: auto;
+  flex: 1;
+  padding-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.wm-section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+/* Hourly scroll */
+.wm-hourly-scroll {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.wm-hour {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 54px;
+  padding: 8px 6px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  flex-shrink: 0;
+}
+
+.wm-hour-time   { font-size: 0.68rem; color: var(--text-muted); }
+.wm-hour-emoji  { font-size: 1.2rem; line-height: 1; }
+.wm-hour-temp   { font-size: 0.88rem; font-weight: 600; }
+.wm-hour-precip { font-size: 0.68rem; color: #5b8dd9; }
+
+/* Daily rows */
+.wm-daily {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wm-day-row {
+  display: grid;
+  grid-template-columns: 44px 28px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.wm-day-row:nth-child(odd) { background: var(--surface-2); }
+
+.wm-day-name  { font-size: 0.85rem; font-weight: 600; }
+.wm-day-emoji { font-size: 1.1rem; text-align: center; }
+.wm-day-desc  { font-size: 0.8rem; color: var(--text-secondary); }
+
+.wm-day-hi-lo {
+  display: flex;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.wm-hi { color: var(--text-primary); }
+.wm-lo { color: var(--text-muted); }
+
+.wm-day-extras {
+  display: flex;
+  gap: 8px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}

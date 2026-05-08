@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { formatDate, formatTime, getGreeting } from '../utils/dateUtils'
 import { getWeatherInfo } from '../utils/weatherCodes'
 import { CONFIG } from '../config/config'
 import TimerWidget from './TimerWidget'
 import TidyTimerButton from './TidyTimerButton'
 import TidyTimerPill from './TidyTimerPill'
+import WeatherModal from './WeatherModal'
 import { useTidyTimer } from '../hooks/useTidyTimer'
 import { useToothbrushTimer } from '../hooks/useToothbrushTimer'
 import { startChimeLoop, stopChimeLoop } from '../utils/chime'
@@ -13,6 +14,7 @@ export default function Header({ now, weather }) {
   const weatherInfo = weather ? getWeatherInfo(weather.code) : null
   const tidy  = useTidyTimer()
   const tooth = useToothbrushTimer()
+  const [showWeather, setShowWeather] = useState(false)
 
   useEffect(() => {
     if (tooth.expired) startChimeLoop()
@@ -23,6 +25,7 @@ export default function Header({ now, weather }) {
   const toothTimeStr = `${tooth.minutes}:${String(tooth.seconds).padStart(2, '0')}`
 
   return (
+    <>
     <header className="dashboard-header">
       <div className="header-greeting">
         <span className="greeting-text">{getGreeting(now)}, {CONFIG.familyName}!</span>
@@ -74,7 +77,11 @@ export default function Header({ now, weather }) {
         )}
 
         {/* Weather pill */}
-        <div className="header-weather">
+        <button
+          className="header-weather"
+          onClick={() => weather && setShowWeather(true)}
+          style={{ cursor: weather ? 'pointer' : 'default' }}
+        >
           {weatherInfo ? (
             <>
               <span className="weather-emoji">{weatherInfo.emoji}</span>
@@ -84,8 +91,13 @@ export default function Header({ now, weather }) {
           ) : (
             <span className="weather-loading">—</span>
           )}
-        </div>
+        </button>
       </div>
     </header>
+
+    {showWeather && weather && (
+      <WeatherModal weather={weather} onClose={() => setShowWeather(false)} />
+    )}
+    </>
   )
 }
