@@ -1,0 +1,523 @@
+/**
+ * Family Dashboard — Google Apps Script
+ *
+ * SETUP INSTRUCTIONS
+ * ──────────────────
+ * 1. Open your Google Sheet.
+ * 2. Create these six tabs named exactly:
+ *
+ *    Chores (row 1 = headers):
+ *      id | label | bucks | icon | active
+ *      c1 | Clean bathroom | 10 | 🚿 | TRUE
+ *      c2 | Vacuum living room | 8 | 🌀 | TRUE
+ *      (one row per chore)
+ *
+ *    Bucks (row 1 = headers):
+ *      child | bucks
+ *      Emma  | 0
+ *      Liam  | 0
+ *      Kid 3 | 0
+ *
+ *    History (row 1 = headers):
+ *      timestamp | child | choreId | choreLabel | bucksEarned
+ *      (leave empty — script fills this in)
+ *
+ *    SpendHistory (row 1 = headers):
+ *      timestamp | child | amount
+ *      (leave empty — script fills this in)
+ *
+ *    ScreenTime (row 1 = headers):
+ *      child | balance
+ *      Emma  | 0
+ *      Liam  | 0
+ *      Kid 3 | 0
+ *
+ *    Grocery (row 1 = headers):
+ *      id | item | addedAt
+ *      (leave empty — script fills this in)
+ *
+ * 3. Extensions → Apps Script → paste this entire file → Save
+ * 4. Deploy → New deployment → Web app
+ *      Execute as: Me
+ *      Who has access: Anyone
+ * 5. Copy the deployment URL → paste into src/config/config.js → appsScriptUrl
+ *
+ * IMPORTANT: Every time you edit this file you must create a NEW deployment
+ * (not update the existing one) and paste the new URL into config.js.
+ *
+ * All actions use GET requests to avoid CORS pre-flight issues.
+ */
+
+const TABS = {
+  CHORES:        'Chores',
+  BUCKS:         'Bucks',
+  HISTORY:       'History',
+  SPEND_HISTORY: 'SpendHistory',
+  SCREEN_TIME:   'ScreenTime',
+  GROCERY:       'Grocery',
+  CALENDARS:     'Calendars',
+  MEALS:         'Meals',
+  NOTES:         'Notes',
+}
+
+function doGet(e) {
+  const action = e.parameter.action
+  let result
+
+  try {
+    if      (action === 'getChores')         result = getChores()
+    else if (action === 'getBucks')          result = getBucks()
+    else if (action === 'completeChore')     result = completeChore(e.parameter.child, e.parameter.choreId)
+    else if (action === 'adjustBucks')       result = adjustBucks(e.parameter.child, Number(e.parameter.delta))
+    else if (action === 'getScreenTime')     result = getScreenTime()
+    else if (action === 'addScreenTime')     result = addScreenTime(e.parameter.child, Number(e.parameter.delta))
+    else if (action === 'getGrocery')        result = getGrocery()
+    else if (action === 'addGroceryItem')    result = addGroceryItem(e.parameter.id, e.parameter.item)
+    else if (action === 'removeGroceryItem') result = removeGroceryItem(e.parameter.id)
+    else if (action === 'clearGrocery')      result = clearGrocery()
+    else if (action === 'getCalendarEvents') result = getCalendarEvents()
+    else if (action === 'debugCalendar')     result = debugCalendar()
+    else if (action === 'getMeals')          result = getMeals()
+    else if (action === 'setMeal')           result = setMeal(e.parameter.day, decodeURIComponent(e.parameter.main || ''), decodeURIComponent(e.parameter.note || ''))
+    else if (action === 'getNotes')          result = getNotes()
+    else if (action === 'addNote')           result = addNote(e.parameter.id, decodeURIComponent(e.parameter.text || ''))
+    else if (action === 'removeNote')        result = removeNote(e.parameter.id)
+    else result = { error: 'Unknown action: ' + action }
+  } catch (err) {
+    result = { error: err.message }
+  }
+
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON)
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getSheet(name) {
+  return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name)
+}
+
+function sheetData(name) {
+  const sheet = getSheet(name)
+  const [headers, ...rows] = sheet.getDataRange().getValues()
+  const idx = col => headers.indexOf(col)
+  return { sheet, headers, rows, idx }
+}
+
+// ── Chores ────────────────────────────────────────────────────────────────────
+
+function getChores() {
+  const { rows, idx } = sheetData(TABS.CHORES)
+  return rows
+    .filter(r => r[idx('active')] === true && r[idx('id')] !== '')
+    .map(r => ({
+      id:    String(r[idx('id')]),
+      label: r[idx('label')],
+      bucks: Number(r[idx('bucks')]),
+      icon:  r[idx('icon')] || '',
+    }))
+}
+
+// ── Beagley Bucks ─────────────────────────────────────────────────────────────
+
+function getBucks() {
+  const { rows, idx } = sheetData(TABS.BUCKS)
+  return rows
+    .filter(r => r[idx('child')] !== '')
+    .map(r => ({ child: r[idx('child')], bucks: Number(r[idx('bucks')]) }))
+}
+
+function completeChore(child, choreId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet()
+
+  const { rows: choreRows, idx: cIdx } = sheetData(TABS.CHORES)
+  const choreRow = choreRows.find(r => String(r[cIdx('id')]) === String(choreId))
+  if (!choreRow) return { success: false, error: 'Chore not found: ' + choreId }
+
+  const bucksEarned = Number(choreRow[cIdx('bucks')])
+  const choreLabel  = choreRow[cIdx('label')]
+
+  _addToBucks(child, bucksEarned)
+
+  ss.getSheetByName(TABS.HISTORY).appendRow([
+    new Date(), child, choreId, choreLabel, bucksEarned
+  ])
+
+  return { success: true, bucksEarned }
+}
+
+function adjustBucks(child, delta) {
+  if (!child || isNaN(delta) || delta === 0) {
+    return { success: false, error: 'Invalid params' }
+  }
+
+  _addToBucks(child, delta)
+
+  // Log to SpendHistory — positive delta = award, negative = deduction
+  getSheet(TABS.SPEND_HISTORY).appendRow([new Date(), child, delta])
+
+  return { success: true }
+}
+
+function _addToBucks(child, delta) {
+  const { sheet, rows, idx } = sheetData(TABS.BUCKS)
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][idx('child')] === child) {
+      const next = Math.max(0, Number(rows[i][idx('bucks')]) + delta)
+      sheet.getRange(i + 2, idx('bucks') + 1).setValue(next)
+      return
+    }
+  }
+}
+
+// ── Screen Time ───────────────────────────────────────────────────────────────
+
+function getScreenTime() {
+  const { rows, idx } = sheetData(TABS.SCREEN_TIME)
+  return rows
+    .filter(r => r[idx('child')] !== '')
+    .map(r => ({ child: r[idx('child')], balance: Number(r[idx('balance')]) }))
+}
+
+function addScreenTime(child, delta) {
+  if (!child || isNaN(delta)) return { success: false, error: 'Invalid params' }
+
+  const { sheet, rows, idx } = sheetData(TABS.SCREEN_TIME)
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][idx('child')] === child) {
+      const next = Math.max(0, Number(rows[i][idx('balance')]) + delta)
+      sheet.getRange(i + 2, idx('balance') + 1).setValue(next)
+      return { success: true, balance: next }
+    }
+  }
+  return { success: false, error: 'Child not found: ' + child }
+}
+
+// ── Grocery ───────────────────────────────────────────────────────────────────
+
+function getGrocery() {
+  const { rows, idx } = sheetData(TABS.GROCERY)
+  return rows
+    .filter(r => r[idx('id')] !== '')
+    .map(r => ({ id: String(r[idx('id')]), item: r[idx('item')] }))
+}
+
+function addGroceryItem(id, item) {
+  if (!id || !item) return { success: false, error: 'Invalid params' }
+  getSheet(TABS.GROCERY).appendRow([id, item, new Date()])
+  return { success: true }
+}
+
+function removeGroceryItem(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+
+  const { sheet, rows, idx } = sheetData(TABS.GROCERY)
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idx('id')]) === String(id)) {
+      sheet.deleteRow(i + 2)
+      return { success: true }
+    }
+  }
+  return { success: false, error: 'Item not found: ' + id }
+}
+
+function clearGrocery() {
+  const sheet = getSheet(TABS.GROCERY)
+  const lastRow = sheet.getLastRow()
+  if (lastRow > 1) sheet.deleteRows(2, lastRow - 1)
+  return { success: true }
+}
+
+// ── Meals ─────────────────────────────────────────────────────────────────────
+
+function getMeals() {
+  const { rows, idx } = sheetData(TABS.MEALS)
+  return rows
+    .filter(r => r[idx('day')] !== '')
+    .map(r => ({ day: r[idx('day')], main: r[idx('main')] || '', note: r[idx('note')] || '' }))
+}
+
+function setMeal(day, main, note) {
+  if (!day) return { success: false, error: 'Missing day' }
+  const { sheet, rows, idx } = sheetData(TABS.MEALS)
+  for (let i = 0; i < rows.length; i++) {
+    if (rows[i][idx('day')] === day) {
+      sheet.getRange(i + 2, idx('main') + 1).setValue(main)
+      sheet.getRange(i + 2, idx('note') + 1).setValue(note)
+      return { success: true }
+    }
+  }
+  // Upsert — day row didn't exist yet
+  sheet.appendRow([day, main, note])
+  return { success: true }
+}
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+
+function getNotes() {
+  const { rows, idx } = sheetData(TABS.NOTES)
+  return rows
+    .filter(r => r[idx('id')] !== '')
+    .map(r => ({ id: String(r[idx('id')]), text: r[idx('text')] || '' }))
+}
+
+function addNote(id, text) {
+  if (!id || !text) return { success: false, error: 'Invalid params' }
+  getSheet(TABS.NOTES).appendRow([id, text])
+  return { success: true }
+}
+
+function removeNote(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.NOTES)
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idx('id')]) === String(id)) {
+      sheet.deleteRow(i + 2)
+      return { success: true }
+    }
+  }
+  return { success: false, error: 'Note not found: ' + id }
+}
+
+// ── Calendars (CalDAV/iCal) ───────────────────────────────────────────────────
+//
+// Reads calendar URLs from the Calendars tab, fetches each iCal feed,
+// parses events, and returns them merged and sorted for the next 60 days.
+// Results are cached for 15 minutes to avoid hammering iCloud on every load.
+
+function getCalendarEvents() {
+  const cache = CacheService.getScriptCache()
+  const cached = cache.get('cal_events')
+  if (cached) return JSON.parse(cached)
+
+  const { rows, idx } = sheetData(TABS.CALENDARS)
+  const calendars = rows
+    .filter(r => r[idx('url')] && String(r[idx('url')]).trim() !== '')
+    .map(r => ({
+      name:  String(r[idx('name')]),
+      url:   String(r[idx('url')]).trim().replace(/^webcal:\/\//i, 'https://'),
+      color: String(r[idx('color')] || '#C17A4A'),
+    }))
+
+  const now     = new Date()
+  const cutoff  = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+  const allEvents = []
+
+  for (const cal of calendars) {
+    try {
+      const res = UrlFetchApp.fetch(cal.url, { muteHttpExceptions: true })
+      if (res.getResponseCode() !== 200) continue
+      const parsed = _parseIcal(res.getContentText(), cal.color, now, cutoff)
+      allEvents.push(...parsed)
+    } catch (e) {
+      // skip calendars that fail to fetch
+    }
+  }
+
+  allEvents.sort((a, b) => a.date.localeCompare(b.date) || (a.time || '').localeCompare(b.time || ''))
+
+  cache.put('cal_events', JSON.stringify(allEvents), 900) // 15 min
+  return allEvents
+}
+
+function debugCalendar() {
+  // Clears the cache and returns raw fetch info for the first calendar
+  CacheService.getScriptCache().remove('cal_events')
+
+  const { rows, idx } = sheetData(TABS.CALENDARS)
+  const row = rows.find(r => r[idx('url')] && String(r[idx('url')]).trim() !== '')
+  if (!row) return { error: 'No calendar URLs found in Calendars tab' }
+
+  const url = String(row[idx('url')]).trim().replace(/^webcal:\/\//i, 'https://')
+  try {
+    const res  = UrlFetchApp.fetch(url, { muteHttpExceptions: true })
+    const code = res.getResponseCode()
+    const body = res.getContentText().slice(0, 1000)
+    const now  = new Date()
+    const cutoff = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+    const parsed = _parseIcal(res.getContentText(), '#ff0000', now, cutoff)
+    return { url, httpStatus: code, rawPreview: body, parsedCount: parsed.length, firstFew: parsed.slice(0, 3) }
+  } catch (e) {
+    return { url, error: e.message }
+  }
+}
+
+// ── iCal parser ───────────────────────────────────────────────────────────────
+
+function _parseIcal(text, color, now, cutoff) {
+  // Unfold continuation lines (RFC 5545: CRLF + whitespace = fold)
+  const unfolded = text.replace(/\r\n[ \t]/g, '').replace(/\n[ \t]/g, '')
+  const lines    = unfolded.split(/\r\n|\n/)
+
+  const events = []
+  let inEvent  = false
+  let props    = {}
+
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') {
+      inEvent = true
+      props   = {}
+    } else if (line === 'END:VEVENT') {
+      inEvent = false
+      const expanded = _expandEvent(props, color, now, cutoff)
+      events.push(...expanded)
+    } else if (inEvent) {
+      const colon = line.indexOf(':')
+      if (colon === -1) continue
+      const keyFull = line.slice(0, colon)
+      const val     = line.slice(colon + 1).replace(/\\,/g, ',').replace(/\\n/g, ' ').replace(/\\;/g, ';').replace(/\\\\/g, '\\')
+      const key     = keyFull.split(';')[0].toUpperCase()
+      props[key]    = val
+      // Also store raw key with params for DTSTART/DTEND timezone hints
+      if (!props['_raw']) props['_raw'] = {}
+      props['_raw'][key] = keyFull
+    }
+  }
+
+  return events
+}
+
+function _expandEvent(props, color, now, cutoff) {
+  const summary = props['SUMMARY'] || '(No title)'
+  const dtstart = _parseIcalDate(props['DTSTART'])
+  if (!dtstart) return []
+
+  const results = []
+
+  if (props['RRULE']) {
+    // Expand recurring event within window
+    const occurrences = _expandRRule(dtstart, props['RRULE'], now, cutoff)
+    for (const d of occurrences) {
+      results.push({ date: _fmtDate(d), title: summary, time: dtstart.allDay ? '' : _fmtTime(d), color })
+    }
+  } else {
+    // Single event — check if it falls in window
+    const d = dtstart.jsDate
+    if (d >= _dayStart(now) && d < cutoff) {
+      results.push({ date: _fmtDate(d), title: summary, time: dtstart.allDay ? '' : _fmtTime(d), color })
+    }
+  }
+
+  return results
+}
+
+function _parseIcalDate(str) {
+  if (!str) return null
+
+  // All-day: 20260509
+  if (/^\d{8}$/.test(str)) {
+    const y = +str.slice(0,4), m = +str.slice(4,6) - 1, d = +str.slice(6,8)
+    return { jsDate: new Date(y, m, d, 0, 0, 0), allDay: true }
+  }
+
+  // UTC datetime: 20260509T160000Z
+  if (/^\d{8}T\d{6}Z$/.test(str)) {
+    const iso = `${str.slice(0,4)}-${str.slice(4,6)}-${str.slice(6,8)}T${str.slice(9,11)}:${str.slice(11,13)}:${str.slice(13,15)}Z`
+    return { jsDate: new Date(iso), allDay: false }
+  }
+
+  // Local datetime (with or without TZID param): 20260509T160000
+  if (/^\d{8}T\d{6}$/.test(str)) {
+    const y = +str.slice(0,4), mo = +str.slice(4,6) - 1, d = +str.slice(6,8)
+    const h = +str.slice(9,11), mi = +str.slice(11,13)
+    return { jsDate: new Date(y, mo, d, h, mi, 0), allDay: false }
+  }
+
+  return null
+}
+
+function _expandRRule(dtstart, rruleStr, now, cutoff) {
+  const parts = {}
+  rruleStr.split(';').forEach(p => {
+    const [k, v] = p.split('=')
+    parts[k] = v
+  })
+
+  const freq     = parts['FREQ']
+  const interval = parseInt(parts['INTERVAL'] || '1', 10)
+  const count    = parts['COUNT']    ? parseInt(parts['COUNT'], 10)    : Infinity
+  const until    = parts['UNTIL']    ? (_parseIcalDate(parts['UNTIL'].replace('Z','')) || {}).jsDate : null
+  const byDay    = parts['BYDAY']    ? parts['BYDAY'].split(',')       : null
+
+  const windowEnd = until && until < cutoff ? until : cutoff
+  const start     = new Date(dtstart.jsDate)
+  const occurrences = []
+  let current    = new Date(start)
+  let n          = 0
+
+  // Advance current to on/after now
+  while (current < _dayStart(now)) {
+    current = _advanceByFreq(current, freq, interval, byDay, start)
+    if (!current) return occurrences
+  }
+
+  while (current < windowEnd && n < count) {
+    occurrences.push(new Date(current))
+    current = _advanceByFreq(current, freq, interval, byDay, start)
+    if (!current) break
+    n++
+    if (n > 500) break // safety cap
+  }
+
+  return occurrences
+}
+
+function _advanceByFreq(d, freq, interval, byDay, originalStart) {
+  const next = new Date(d)
+
+  if (freq === 'DAILY') {
+    next.setDate(next.getDate() + interval)
+    return next
+  }
+
+  if (freq === 'WEEKLY') {
+    if (byDay && byDay.length > 1) {
+      // Multiple days per week (e.g. MO,WE,FR) — advance to next matching day
+      const dayMap = { SU:0, MO:1, TU:2, WE:3, TH:4, FR:5, SA:6 }
+      const targetDays = byDay.map(d => dayMap[d.slice(-2)]).sort((a,b)=>a-b)
+      const cur = next.getDay()
+      const nextDay = targetDays.find(td => td > cur)
+      if (nextDay !== undefined) {
+        next.setDate(next.getDate() + (nextDay - cur))
+      } else {
+        // Wrap to next week's first target day
+        next.setDate(next.getDate() + (7 * interval - cur + targetDays[0]))
+      }
+      return next
+    }
+    next.setDate(next.getDate() + 7 * interval)
+    return next
+  }
+
+  if (freq === 'MONTHLY') {
+    next.setMonth(next.getMonth() + interval)
+    return next
+  }
+
+  if (freq === 'YEARLY') {
+    next.setFullYear(next.getFullYear() + interval)
+    return next
+  }
+
+  return null
+}
+
+function _dayStart(d) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0)
+}
+
+function _fmtDate(d) {
+  const y  = d.getFullYear()
+  const m  = String(d.getMonth() + 1).padStart(2, '0')
+  const dy = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${dy}`
+}
+
+function _fmtTime(d) {
+  let h    = d.getHours()
+  const mi = String(d.getMinutes()).padStart(2, '0')
+  const ap = h >= 12 ? 'PM' : 'AM'
+  h = h % 12 || 12
+  return `${h}:${mi} ${ap}`
+}

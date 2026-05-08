@@ -1,0 +1,63 @@
+import { useState } from 'react'
+import Header from './components/Header'
+import Calendar from './components/Calendar'
+import MealPlan from './components/MealPlan'
+import NotesAndGrocery from './components/NotesAndGrocery'
+import Routines from './components/Routines'
+import ChoreModal from './components/ChoreModal'
+import ScreenTimeModal from './components/ScreenTimeModal'
+import BucksModal from './components/BucksModal'
+import { useClock } from './hooks/useClock'
+import { useWeather } from './hooks/useWeather'
+
+export default function App() {
+  const now = useClock()
+  const weather = useWeather()
+  const [activeChoreChild, setActiveChoreChild] = useState(null)
+  const [activeScreenChild, setActiveScreenChild] = useState(null)
+  const [activeBucksChild, setActiveBucksChild] = useState(null)
+
+  return (
+    <div className="dashboard">
+      <Header now={now} weather={weather} />
+
+      <div className="dashboard-body">
+        <div className="panel-left">
+          <Calendar now={now} />
+          <MealPlan now={now} />
+          <NotesAndGrocery />
+        </div>
+
+        <div className="panel-right">
+          <Routines
+            now={now}
+            onSpinChore={setActiveChoreChild}
+            onScreenTime={setActiveScreenChild}
+            onBucks={setActiveBucksChild}
+          />
+        </div>
+      </div>
+
+      {activeChoreChild && (
+        <ChoreModal
+          child={activeChoreChild}
+          onClose={() => setActiveChoreChild(null)}
+        />
+      )}
+
+      {activeScreenChild && (
+        <ScreenTimeModal
+          child={activeScreenChild}
+          onClose={() => setActiveScreenChild(null)}
+        />
+      )}
+
+      {activeBucksChild && (
+        <BucksModal
+          child={activeBucksChild}
+          onClose={() => setActiveBucksChild(null)}
+        />
+      )}
+    </div>
+  )
+}
