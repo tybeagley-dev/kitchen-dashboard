@@ -51,28 +51,52 @@ export const CONFIG = {
   //   'morning' → before noon   'evening' → noon and after   omit → always
   routines: {
     Paige: [
-      { id: 'p-bed',      label: 'Make bed',          icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
-      { id: 'p-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'],                                time: '' },
-      { id: 'p-shoes',    label: 'Shoes & socks on',   icon: '👟', schedules: ['school'],                                time: '' },
-      { id: 'p-backpack', label: 'Backpack ready',     icon: '🎒', schedules: ['school'],                                time: '' },
-      { id: 'p-homework', label: 'Homework done',      icon: '📚', schedules: ['school'],                                time: '' },
-      { id: 'p-piano',    label: 'Piano practice',     icon: '🎹', schedules: ['school', 'weekend'],                     time: '' },
-      { id: 'p-reading',  label: 'Free reading',       icon: '📖', schedules: ['summer', 'holiday', 'weekend'],          time: '' },
-      { id: 'p-screen',   label: 'Screen-free morning',icon: '📵', schedules: ['summer', 'holiday'],                     time: '' },
+      // Morning
+      { id: 'p-bed630',    label: 'Stayed in bed till 6:30', icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'p-hair',      label: 'Brush hair',              icon: '💇', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'p-breakfast', label: 'Breakfast',               icon: '🥣', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'p-lunch',     label: 'Pack lunch',              icon: '🥪', schedules: ['school'],                                 time: 'morning' },
+      { id: 'p-reading',   label: 'Reading',                 icon: '📖', schedules: ['weekend', 'holiday', 'summer'],           time: 'morning' },
+      { id: 'p-outside-m', label: 'Outside time',            icon: '🌳', schedules: ['summer', 'weekend', 'holiday'],           time: 'morning' },
+      // Evening
+      { id: 'p-outside-e', label: 'Outside time',            icon: '🌳', schedules: ['school'],                                 time: 'evening' },
+      { id: 'p-backpack',  label: 'Backpack away',           icon: '🎒', schedules: ['school'],                                 time: 'evening' },
+      { id: 'p-lunchbox',  label: 'Lunchbox in sink',        icon: '🍱', schedules: ['school'],                                 time: 'evening' },
+      { id: 'p-shoes',     label: 'Shoes away',              icon: '👟', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'p-clothes',   label: 'Clothes changed',         icon: '👕', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'p-teeth',     label: 'Teeth flossed & brushed', icon: '🦷', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
     ],
     Nolan: [
-      { id: 'n-bed',      label: 'Make bed',           icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
-      { id: 'n-dog',      label: 'Feed the dog',       icon: '🐕', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
-      { id: 'n-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'],                                 time: '' },
-      { id: 'n-backpack', label: 'Backpack put away',  icon: '🎒', schedules: ['school'],                                 time: '' },
-      { id: 'n-homework', label: 'Homework done',      icon: '📚', schedules: ['school'],                                 time: '' },
-      { id: 'n-outside',  label: 'Outside time',       icon: '🌳', schedules: ['summer', 'holiday', 'weekend'],           time: '' },
+      // Morning
+      { id: 'n-bed630',    label: 'Stayed in bed till 6:30', icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'n-hair',      label: 'Brush hair',              icon: '💇', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'n-breakfast', label: 'Breakfast',               icon: '🥣', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'n-lunch',     label: 'Pack lunch',              icon: '🥪', schedules: ['school'],                                 time: 'morning' },
+      { id: 'n-reading',   label: 'Reading',                 icon: '📖', schedules: ['weekend', 'holiday', 'summer'],           time: 'morning' },
+      { id: 'n-outside-m', label: 'Outside time',            icon: '🌳', schedules: ['summer', 'weekend', 'holiday'],           time: 'morning' },
+      // Evening
+      { id: 'n-outside-e', label: 'Outside time',            icon: '🌳', schedules: ['school'],                                 time: 'evening' },
+      { id: 'n-backpack',  label: 'Backpack away',           icon: '🎒', schedules: ['school'],                                 time: 'evening' },
+      { id: 'n-lunchbox',  label: 'Lunchbox in sink',        icon: '🍱', schedules: ['school'],                                 time: 'evening' },
+      { id: 'n-shoes',     label: 'Shoes away',              icon: '👟', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'n-clothes',   label: 'Clothes changed',         icon: '👕', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'n-teeth',     label: 'Teeth flossed & brushed', icon: '🦷', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
     ],
-    'Jonah': [
-      { id: 'jo-bed',      label: 'Make bed',       icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
-      { id: 'jo-lunch',    label: 'Pack lunch',     icon: '🥪', schedules: ['school'],                                 time: '' },
-      { id: 'jo-backpack', label: 'Backpack ready', icon: '🎒', schedules: ['school'],                                 time: '' },
-      { id: 'jo-homework', label: 'Homework done',  icon: '📚', schedules: ['school'],                                 time: '' },
+    Jonah: [
+      // Morning
+      { id: 'jo-bed630',    label: 'Stayed in bed till 6:30', icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'jo-hair',      label: 'Brush hair',              icon: '💇', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'jo-breakfast', label: 'Breakfast',               icon: '🥣', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'morning' },
+      { id: 'jo-lunch',     label: 'Pack lunch',              icon: '🥪', schedules: ['school'],                                 time: 'morning' },
+      { id: 'jo-reading',   label: 'Reading',                 icon: '📖', schedules: ['weekend', 'holiday', 'summer'],           time: 'morning' },
+      { id: 'jo-outside-m', label: 'Outside time',            icon: '🌳', schedules: ['summer', 'weekend', 'holiday'],           time: 'morning' },
+      // Evening
+      { id: 'jo-outside-e', label: 'Outside time',            icon: '🌳', schedules: ['school'],                                 time: 'evening' },
+      { id: 'jo-backpack',  label: 'Backpack away',           icon: '🎒', schedules: ['school'],                                 time: 'evening' },
+      { id: 'jo-lunchbox',  label: 'Lunchbox in sink',        icon: '🍱', schedules: ['school'],                                 time: 'evening' },
+      { id: 'jo-shoes',     label: 'Shoes away',              icon: '👟', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'jo-clothes',   label: 'Clothes changed',         icon: '👕', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
+      { id: 'jo-teeth',     label: 'Teeth flossed & brushed', icon: '🦷', schedules: ['school', 'weekend', 'summer', 'holiday'], time: 'evening' },
     ],
   },
 
