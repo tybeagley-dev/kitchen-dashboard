@@ -80,27 +80,12 @@ export const CONFIG = {
   // See scripts/appsscript.gs for how to connect a Google Sheet.
   appsScriptUrl: import.meta.env.VITE_APPS_SCRIPT_URL ?? '',  // ← paste your deployed Apps Script URL here
 
-  demoChores: [
-    { id: 'c1', label: 'Clean bathroom',          icon: '🚿', bucks: 10 },
-    { id: 'c2', label: 'Vacuum living room',      icon: '🌀', bucks: 8  },
-    { id: 'c3', label: 'Empty all trash',         icon: '🗑️', bucks: 6  },
-    { id: 'c4', label: 'Wipe down counters',      icon: '✨', bucks: 5  },
-    { id: 'c5', label: 'Sweep porch',             icon: '🧹', bucks: 6  },
-    { id: 'c6', label: 'Unload dishwasher',       icon: '🍽️', bucks: 5  },
-    { id: 'c7', label: 'Fold & put away laundry', icon: '👕', bucks: 8  },
-    { id: 'c8', label: 'Water the plants',        icon: '🌿', bucks: 4  },
-  ],
+  demoChores: [],
 
   // ── Calendar Events ────────────────────────────────────────────────────────
   // Add upcoming family events here. Format: YYYY-MM-DD.
   // color is optional — defaults to the accent color.
-  events: [
-    { date: '2026-05-09', title: 'Soccer Practice',    time: '4:00 PM',  color: '#C17A4A' },
-    { date: '2026-05-10', title: 'Piano — Emma',       time: '10:00 AM', color: '#9B6B8F' },
-    { date: '2026-05-12', title: 'Library books due',  time: '',         color: '#6B8F71' },
-    { date: '2026-05-14', title: 'Dentist — Liam',     time: '2:30 PM',  color: '#6B82A0' },
-    { date: '2026-05-16', title: 'Soccer Game',        time: '11:00 AM', color: '#C17A4A' },
-  ],
+  events: [],
 
   // ── Meal Plan ──────────────────────────────────────────────────────────────
   // Keys must match JS day names: Sunday Monday Tuesday Wednesday Thursday Friday Saturday
