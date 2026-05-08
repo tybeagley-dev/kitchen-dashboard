@@ -35,7 +35,12 @@ export function useRoutines(now) {
   const routinesByChild = {}
   CONFIG.children.forEach(child => {
     routinesByChild[child.name] = (CONFIG.routines[child.name] ?? [])
-      .filter(r => r.schedules.includes(mode))
+      .filter(r => {
+        if (!r.schedules.includes(mode)) return false
+        if (!r.time) return true
+        const isEvening = now.getHours() >= 12
+        return r.time === (isEvening ? 'evening' : 'morning')
+      })
       .map(r => ({ ...r, completed: !!completed[`${child.name}__${r.id}`] }))
   })
 

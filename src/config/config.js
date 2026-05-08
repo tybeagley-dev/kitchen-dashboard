@@ -46,31 +46,33 @@ export const CONFIG = {
   //          'weekend' → Saturday & Sunday
   //          'summer'  → within the summer date range above
   //          'holiday' → within any break date range above
+  //
+  // time (optional): which half of day the routine appears.
+  //   'morning' → before noon   'evening' → noon and after   omit → always
   routines: {
     Paige: [
-      { id: 'p-bed',      label: 'Make bed',          icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'] },
-      { id: 'p-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'] },
-      { id: 'p-shoes',    label: 'Shoes & socks on',   icon: '👟', schedules: ['school'] },
-      { id: 'p-backpack', label: 'Backpack ready',     icon: '🎒', schedules: ['school'] },
-      { id: 'p-homework', label: 'Homework done',      icon: '📚', schedules: ['school'] },
-      { id: 'p-piano',    label: 'Piano practice',     icon: '🎹', schedules: ['school', 'weekend'] },
-      { id: 'p-reading',  label: 'Free reading',       icon: '📖', schedules: ['summer', 'holiday', 'weekend'] },
-      { id: 'p-screen',   label: 'Screen-free morning',icon: '📵', schedules: ['summer', 'holiday'] },
+      { id: 'p-bed',      label: 'Make bed',          icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
+      { id: 'p-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'],                                time: '' },
+      { id: 'p-shoes',    label: 'Shoes & socks on',   icon: '👟', schedules: ['school'],                                time: '' },
+      { id: 'p-backpack', label: 'Backpack ready',     icon: '🎒', schedules: ['school'],                                time: '' },
+      { id: 'p-homework', label: 'Homework done',      icon: '📚', schedules: ['school'],                                time: '' },
+      { id: 'p-piano',    label: 'Piano practice',     icon: '🎹', schedules: ['school', 'weekend'],                     time: '' },
+      { id: 'p-reading',  label: 'Free reading',       icon: '📖', schedules: ['summer', 'holiday', 'weekend'],          time: '' },
+      { id: 'p-screen',   label: 'Screen-free morning',icon: '📵', schedules: ['summer', 'holiday'],                     time: '' },
     ],
     Nolan: [
-      { id: 'n-bed',      label: 'Make bed',           icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'] },
-      { id: 'n-dog',      label: 'Feed the dog',       icon: '🐕', schedules: ['school', 'weekend', 'summer', 'holiday'] },
-      { id: 'n-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'] },
-      { id: 'n-backpack', label: 'Backpack put away',  icon: '🎒', schedules: ['school'] },
-      { id: 'n-homework', label: 'Homework done',      icon: '📚', schedules: ['school'] },
-      { id: 'n-outside',  label: 'Outside time',       icon: '🌳', schedules: ['summer', 'holiday', 'weekend'] },
+      { id: 'n-bed',      label: 'Make bed',           icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
+      { id: 'n-dog',      label: 'Feed the dog',       icon: '🐕', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
+      { id: 'n-lunch',    label: 'Pack lunch',         icon: '🥪', schedules: ['school'],                                 time: '' },
+      { id: 'n-backpack', label: 'Backpack put away',  icon: '🎒', schedules: ['school'],                                 time: '' },
+      { id: 'n-homework', label: 'Homework done',      icon: '📚', schedules: ['school'],                                 time: '' },
+      { id: 'n-outside',  label: 'Outside time',       icon: '🌳', schedules: ['summer', 'holiday', 'weekend'],           time: '' },
     ],
-    // ← rename key to match the child's name above, then add their routines
     'Jonah': [
-      { id: 'jo-bed',      label: 'Make bed',       icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'] },
-      { id: 'jo-lunch',    label: 'Pack lunch',     icon: '🥪', schedules: ['school'] },
-      { id: 'jo-backpack', label: 'Backpack ready', icon: '🎒', schedules: ['school'] },
-      { id: 'jo-homework', label: 'Homework done',  icon: '📚', schedules: ['school'] },
+      { id: 'jo-bed',      label: 'Make bed',       icon: '🛏️', schedules: ['school', 'weekend', 'summer', 'holiday'], time: '' },
+      { id: 'jo-lunch',    label: 'Pack lunch',     icon: '🥪', schedules: ['school'],                                 time: '' },
+      { id: 'jo-backpack', label: 'Backpack ready', icon: '🎒', schedules: ['school'],                                 time: '' },
+      { id: 'jo-homework', label: 'Homework done',  icon: '📚', schedules: ['school'],                                 time: '' },
     ],
   },
 
