@@ -2224,12 +2224,11 @@ button {
   margin-bottom: 10px;
 }
 
-/* Hourly scroll */
-.wm-hourly-scroll {
-  display: flex;
+/* Hourly grid — 8 cards in 2 rows of 4 */
+.wm-hourly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 4px;
 }
 
 .wm-hour {
@@ -2237,11 +2236,9 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 3px;
-  min-width: 54px;
-  padding: 8px 6px;
+  padding: 8px 4px;
   border-radius: var(--radius-sm);
   background: var(--surface-2);
-  flex-shrink: 0;
 }
 
 .wm-hour-time   { font-size: 0.68rem; color: var(--text-muted); }
@@ -2257,25 +2254,25 @@ button {
 }
 
 .wm-day-row {
-  display: grid;
-  grid-template-columns: 44px 28px 1fr auto auto;
+  display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
 }
 
 .wm-day-row:nth-child(odd) { background: var(--surface-2); }
 
-.wm-day-name  { font-size: 0.85rem; font-weight: 600; }
-.wm-day-emoji { font-size: 1.1rem; text-align: center; }
-.wm-day-desc  { font-size: 0.8rem; color: var(--text-secondary); }
+.wm-day-name  { font-size: 0.85rem; font-weight: 600; width: 44px; flex-shrink: 0; }
+.wm-day-emoji { font-size: 1.1rem; flex-shrink: 0; }
 
 .wm-day-hi-lo {
   display: flex;
   gap: 8px;
   font-size: 0.85rem;
   font-weight: 600;
+  flex-shrink: 0;
+  width: 72px;
 }
 
 .wm-hi { color: var(--text-primary); }
@@ -2283,7 +2280,8 @@ button {
 
 .wm-day-extras {
   display: flex;
-  gap: 8px;
-  font-size: 0.75rem;
+  gap: 12px;
+  font-size: 0.78rem;
   color: var(--text-secondary);
+  flex-wrap: wrap;
 }

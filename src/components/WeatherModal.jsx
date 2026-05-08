@@ -68,12 +68,12 @@ export default function WeatherModal({ weather, onClose }) {
         </div>
 
         <div className="wm-body">
-          {/* ── Hourly forecast ── */}
+          {/* ── Hourly forecast — next 8 hours ── */}
           {weather.hourly?.length > 0 && (
             <div className="wm-section">
-              <h3 className="wm-section-title">Next 24 Hours</h3>
-              <div className="wm-hourly-scroll">
-                {weather.hourly.map((h, i) => {
+              <h3 className="wm-section-title">Next 8 Hours</h3>
+              <div className="wm-hourly-grid">
+                {weather.hourly.slice(0, 8).map((h, i) => {
                   const hi = getWeatherInfo(h.code)
                   return (
                     <div key={i} className="wm-hour">
@@ -96,23 +96,22 @@ export default function WeatherModal({ weather, onClose }) {
               <h3 className="wm-section-title">7-Day Forecast</h3>
               <div className="wm-daily">
                 {weather.daily.map((day, i) => {
-                  const di    = getWeatherInfo(day.code)
-                  const date  = new Date(day.date + 'T12:00:00')
-                  const name  = i === 0 ? 'Today' : DAY_NAMES[date.getDay()]
-                  const uvD   = uvLabel(day.uvIndex)
+                  const di   = getWeatherInfo(day.code)
+                  const date = new Date(day.date + 'T12:00:00')
+                  const name = i === 0 ? 'Today' : DAY_NAMES[date.getDay()]
+                  const uvD  = uvLabel(day.uvIndex)
                   return (
                     <div key={i} className="wm-day-row">
                       <span className="wm-day-name">{name}</span>
                       <span className="wm-day-emoji">{di.emoji}</span>
-                      <span className="wm-day-desc">{di.label}</span>
                       <span className="wm-day-hi-lo">
                         <span className="wm-hi">{day.high}°</span>
                         <span className="wm-lo">{day.low}°</span>
                       </span>
                       <span className="wm-day-extras">
                         {day.precipProb > 0 && <span>💧{day.precipProb}%</span>}
-                        {day.windMax > 0    && <span>💨{day.windMax}mph</span>}
-                        {day.uvIndex > 0    && <span style={{ color: uvD.color }}>UV{day.uvIndex}</span>}
+                        {day.windMax > 0    && <span>💨{day.windMax} mph</span>}
+                        {day.uvIndex > 0    && <span style={{ color: uvD.color }}>UV {day.uvIndex} · {uvD.label}</span>}
                       </span>
                     </div>
                   )
