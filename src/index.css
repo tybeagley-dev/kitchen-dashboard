@@ -1639,6 +1639,50 @@ button {
   text-decoration: underline;
 }
 
+/* ── Calendar day selection ──────────────────────────────────────────────── */
+.calendar-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.cal-clear-btn {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-warm);
+  padding: 2px 8px;
+  border-radius: 50px;
+  background: rgba(193,122,74,0.1);
+  border: 1px solid rgba(193,122,74,0.2);
+}
+
+.week-day {
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+  background: none;
+  border: none;
+  font-family: inherit;
+}
+
+.week-day:active {
+  background: var(--surface-2);
+}
+
+.week-day.selected {
+  background: var(--accent-warm);
+}
+
+.week-day.selected .week-day-name,
+.week-day.selected .week-day-num {
+  color: white;
+}
+
+.week-day.selected .event-dot {
+  background: rgba(255,255,255,0.8);
+}
+
 /* ── Card edit button ────────────────────────────────────────────────────── */
 .meal-card-header {
   display: flex;
@@ -1863,4 +1907,130 @@ button {
 @keyframes pulse-red {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
+}
+
+/* ── Chore Mode Toggle ───────────────────────────────────────────────────── */
+.chore-mode-toggle {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  margin: 8px 0 4px;
+}
+
+.chore-mode-btn {
+  flex: 1;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: 2px solid var(--border);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.chore-mode-btn.active {
+  border-color: var(--accent-warm);
+  background: var(--accent-warm);
+  color: #fff;
+}
+
+/* ── Chore Result Cards ───────────────────────────────────────────────────── */
+.chore-result-cards {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.chore-result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  flex: 1;
+  min-width: 0;
+}
+
+.chore-result-icon { font-size: 1.6rem; }
+.chore-result-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  line-height: 1.2;
+}
+.chore-result-bucks { font-size: 0.78rem; color: var(--text-secondary); }
+
+/* ── Screen Time earned line ─────────────────────────────────────────────── */
+.st-earned-line {
+  text-align: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-sage);
+  margin-bottom: 8px;
+}
+
+/* ── Burst (routine check) ───────────────────────────────────────────────── */
+.routine-check {
+  position: relative;
+}
+
+.burst-wrap {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.burst-particle {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: burst-fly 0.65s ease-out forwards;
+}
+
+@keyframes burst-fly {
+  from {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0px);
+    opacity: 1;
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(calc(var(--dist) * -1));
+    opacity: 0;
+  }
+}
+
+/* ── Confetti (all routines done) ────────────────────────────────────────── */
+.confetti-wrap {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 20;
+  border-radius: inherit;
+}
+
+.confetti-piece {
+  position: absolute;
+  top: -24px;
+  left: var(--x);
+  line-height: 1;
+  animation: confetti-fall var(--dur) var(--delay) ease-in forwards;
+}
+
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg);           opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(320px) rotate(var(--rotate)); opacity: 0; }
 }

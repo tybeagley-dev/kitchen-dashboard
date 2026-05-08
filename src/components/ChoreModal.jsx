@@ -1,24 +1,22 @@
 import { useState, useEffect } from 'react'
 import SpinningWheel from './SpinningWheel'
-import { useChores, useChorePoints } from '../hooks/useChores'
-import { useScreenBalance, startChildTimer } from '../hooks/useScreenTime'
-import { CONFIG } from '../config/config'
+import { useChores } from '../hooks/useChores'
+import { assignChores, getClaimedChoreIds } from '../hooks/useAssignedChores'
 
-const PHASE = {
-  READY:  'ready',
-  RESULT: 'result',
-  DONE:   'done',
+const PHASE = { READY: 'ready', RESULT: 'result' }
+const MODE  = { TWO_ONE: '2x1', ONE_TWO: '1x2' }
+
+function pickUnique(pool, count) {
+  const shuffled = [...pool].sort(() => Math.random() - 0.5)
+  return shuffled.slice(0, Math.min(count, shuffled.length))
 }
 
 export default function ChoreModal({ child, onClose }) {
   const { chores, loading } = useChores()
-  const { bucks, recordCompletion } = useChorePoints(child.name)
-  const { balance, addMinutes } = useScreenBalance(child.name)
 
-  const [phase, setPhase] = useState(PHASE.READY)
-  const [selectedChore, setSelectedChore] = useState(null)
-  const [earned, setEarned] = useState(0)
-  const [screenEarned] = useState(CONFIG.screenTime?.minutesPerChore ?? 30)
+  const [phase,    setPhase]    = useState(PHASE.READY)
+  const [mode,     setMode]     = useState(MODE.TWO_ONE)
+  const [results,  setResults]  = useState([]) // 1 or 2 chore objects
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
@@ -26,27 +24,38 @@ export default function ChoreModal({ child, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function handleSpinEnd(chore) {
-    setSelectedChore(chore)
+  function filteredPool() {
+    const targetBucks = mode === MODE.TWO_ONE ? 1 : 2
+    const claimed     = getClaimedChoreIds(child.name)
+    return chores.filter(c => c.bucks === targetBucks && !claimed.has(c.id))
+  }
+
+  function handleSpinEnd(firstChore) {
+    if (mode === MODE.TWO_ONE) {
+      // Pick a second unique chore from the 1-buck pool
+      const pool   = filteredPool()
+      const second = pool.filter(c => c.id !== firstChore.id)
+      const extra  = second.length > 0
+        ? second[Math.floor(Math.random() * second.length)]
+        : null
+      setResults(extra ? [firstChore, extra] : [firstChore])
+    } else {
+      setResults([firstChore])
+    }
     setPhase(PHASE.RESULT)
   }
 
-  async function handleComplete() {
-    const result = await recordCompletion(child.name, selectedChore.id, selectedChore.bucks)
-    setEarned(result.bucksEarned ?? selectedChore.bucks)
-    addMinutes(screenEarned)
-    setPhase(PHASE.DONE)
+  function handleAccept() {
+    assignChores(child.name, results.map(c => ({ ...c, completed: false })))
+    onClose()
   }
 
   function handleSpinAgain() {
-    setSelectedChore(null)
+    setResults([])
     setPhase(PHASE.READY)
   }
 
-  function handleStartTimer() {
-    startChildTimer(child.name)
-    onClose()
-  }
+  const pool = filteredPool()
 
   return (
     <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -59,53 +68,54 @@ export default function ChoreModal({ child, onClose }) {
           </div>
           <div>
             <h2 className="modal-title">{child.name}'s Chore</h2>
-            <p className="modal-points-line">
-              <span className="bb-icon">🪙</span> {bucks} Beagley Bucks
-              {balance > 0 && <span className="modal-screen-balance"> · ⏱ {balance} min banked</span>}
-            </p>
           </div>
+        </div>
+
+        {/* Mode toggle */}
+        <div className="chore-mode-toggle">
+          <button
+            className={`chore-mode-btn ${mode === MODE.TWO_ONE ? 'active' : ''}`}
+            onClick={() => { setMode(MODE.TWO_ONE); setPhase(PHASE.READY); setResults([]) }}
+          >
+            2 × 🪙1
+          </button>
+          <button
+            className={`chore-mode-btn ${mode === MODE.ONE_TWO ? 'active' : ''}`}
+            onClick={() => { setMode(MODE.ONE_TWO); setPhase(PHASE.READY); setResults([]) }}
+          >
+            1 × 🪙🪙2
+          </button>
         </div>
 
         {loading ? (
           <div className="modal-loading">Loading chores…</div>
+        ) : pool.length === 0 ? (
+          <div className="modal-loading">
+            No {mode === MODE.TWO_ONE ? '1-buck' : '2-buck'} chores in the pool
+          </div>
         ) : (
           <div className={`modal-wheel-wrap ${phase !== PHASE.READY ? 'dimmed' : ''}`}>
-            <SpinningWheel chores={chores} onSpinEnd={handleSpinEnd} />
+            <SpinningWheel chores={pool} onSpinEnd={handleSpinEnd} />
           </div>
         )}
 
-        {phase === PHASE.RESULT && selectedChore && (
+        {phase === PHASE.RESULT && results.length > 0 && (
           <div className="chore-result-panel">
-            <div className="chore-result-name">
-              <span>{selectedChore.icon}</span> {selectedChore.label}
+            <div className="chore-result-cards">
+              {results.map(chore => (
+                <div key={chore.id} className="chore-result-card">
+                  <span className="chore-result-icon">{chore.icon}</span>
+                  <span className="chore-result-name">{chore.label}</span>
+                  <span className="chore-result-bucks">🪙{chore.bucks}</span>
+                </div>
+              ))}
             </div>
-            <div className="chore-result-points">+{selectedChore.bucks} BB</div>
             <div className="chore-result-actions">
-              <button className="btn-complete" onClick={handleComplete}>
-                ✓ Done — Mark Complete!
+              <button className="btn-complete" onClick={handleAccept}>
+                ✓ These are my chores!
               </button>
               <button className="btn-spin-again" onClick={handleSpinAgain}>
                 Spin Again
-              </button>
-            </div>
-          </div>
-        )}
-
-        {phase === PHASE.DONE && (
-          <div className="chore-done-panel">
-            <div className="done-burst">🎉</div>
-            <p className="done-earned">+{earned} Beagley Bucks!</p>
-            <p className="done-screen-time">+{screenEarned} min screen time</p>
-            <p className="done-total">
-              {child.name} now has <strong>🪙 {bucks} BB</strong>
-            </p>
-            <p className="done-screen-prompt">What do you want to do with your screen time?</p>
-            <div className="done-screen-actions">
-              <button className="btn-start-timer" onClick={handleStartTimer}>
-                ▶ Start Timer ({CONFIG.screenTime?.timerBufferMinutes ?? 35} min)
-              </button>
-              <button className="btn-bank-it" onClick={onClose}>
-                🏦 Bank It
               </button>
             </div>
           </div>

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useScreenBalance, startChildTimer } from '../hooks/useScreenTime'
 import { CONFIG } from '../config/config'
 
-export default function ScreenTimeModal({ child, onClose }) {
+export default function ScreenTimeModal({ child, onClose, earned }) {
   const { balance } = useScreenBalance(child.name)
   const bufferMin = CONFIG.screenTime?.timerBufferMinutes ?? 35
 
@@ -31,6 +31,10 @@ export default function ScreenTimeModal({ child, onClose }) {
             <p className="modal-points-line">Screen Time Balance</p>
           </div>
         </div>
+
+        {earned != null && (
+          <p className="st-earned-line">+{earned} min earned!</p>
+        )}
 
         <div className="st-balance-display">
           <span className="st-balance-num">{balance}</span>

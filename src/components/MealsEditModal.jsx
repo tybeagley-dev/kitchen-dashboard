@@ -46,7 +46,7 @@ export default function MealsEditModal({ meals, dayOrder, onSave, onClose }) {
                 <input
                   className="meals-edit-input meals-edit-note"
                   type="text"
-                  placeholder="Note (optional)"
+                  placeholder="Who's pick? (optional)"
                   value={note}
                   onChange={e => handleChange(day, 'note', e.target.value)}
                 />

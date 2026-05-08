@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CONFIG } from '../config/config'
+import { getTodayKey } from '../utils/dateUtils'
 
-const BUCKS_KEY = 'fam_dash_bucks'
+const BUCKS_KEY      = 'fam_dash_bucks'
+const CHORE_DONE_KEY = 'fam_dash_chore_done'
 
 function getLocalBucks() {
   return JSON.parse(localStorage.getItem(BUCKS_KEY) ?? '{}')
@@ -94,4 +96,36 @@ export function useChorePoints(childName) {
   }, [childName])
 
   return { bucks, recordCompletion, adjustBucks }
+}
+
+// ── Chore-as-routine tracking ─────────────────────────────────────────────────
+
+export function markChoreToday(childName) {
+  const today = getTodayKey(new Date())
+  const raw   = localStorage.getItem(CHORE_DONE_KEY)
+  const stored = raw ? JSON.parse(raw) : {}
+  const record = stored.date === today ? stored : { date: today, children: {} }
+  record.children[childName] = true
+  localStorage.setItem(CHORE_DONE_KEY, JSON.stringify(record))
+  window.dispatchEvent(new CustomEvent('fam_chore_done_update'))
+}
+
+export function useChoreCompletedToday(childName) {
+  function read() {
+    const today = getTodayKey(new Date())
+    const raw   = localStorage.getItem(CHORE_DONE_KEY)
+    if (!raw) return false
+    const stored = JSON.parse(raw)
+    return stored.date === today && !!stored.children?.[childName]
+  }
+
+  const [done, setDone] = useState(read)
+
+  useEffect(() => {
+    function onUpdate() { setDone(read()) }
+    window.addEventListener('fam_chore_done_update', onUpdate)
+    return () => window.removeEventListener('fam_chore_done_update', onUpdate)
+  }, [childName])
+
+  return done
 }

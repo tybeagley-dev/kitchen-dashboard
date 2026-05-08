@@ -1,4 +1,17 @@
+import { useRef, useState, useEffect } from 'react'
+import Burst from './Burst'
+
 export default function RoutineItem({ routine, onToggle }) {
+  const prevCompleted = useRef(routine.completed)
+  const [burstKey, setBurstKey] = useState(0)
+
+  useEffect(() => {
+    if (!prevCompleted.current && routine.completed) {
+      setBurstKey(k => k + 1)
+    }
+    prevCompleted.current = routine.completed
+  }, [routine.completed])
+
   return (
     <button
       className={`routine-item ${routine.completed ? 'completed' : ''}`}
@@ -17,6 +30,7 @@ export default function RoutineItem({ routine, onToggle }) {
             />
           </svg>
         )}
+        <Burst triggerKey={burstKey} />
       </span>
       <span className="routine-icon">{routine.icon}</span>
       <span className="routine-label">{routine.label}</span>
