@@ -23,7 +23,7 @@ export function getClaimedChoreIds(excludeChildName) {
   const all = loadAssignments()
   const ids = new Set()
   Object.entries(all).forEach(([name, chores]) => {
-    if (name !== excludeChildName) chores.forEach(c => ids.add(c.id))
+    if (name !== excludeChildName) chores.filter(c => !c.required).forEach(c => ids.add(c.id))
   })
   return ids
 }

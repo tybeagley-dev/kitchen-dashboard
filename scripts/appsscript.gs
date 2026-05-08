@@ -112,10 +112,14 @@ function getChores() {
   return rows
     .filter(r => r[idx('active')] === true && r[idx('id')] !== '')
     .map(r => ({
-      id:    String(r[idx('id')]),
-      label: r[idx('label')],
-      bucks: Number(r[idx('bucks')]),
-      icon:  r[idx('icon')] || '',
+      id:           String(r[idx('id')]),
+      label:        r[idx('label')],
+      bucks:        Number(r[idx('bucks')]),
+      icon:         r[idx('icon')] || '',
+      days:         r[idx('days')] ? String(r[idx('days')]).split(',').map(d => d.trim()).filter(Boolean) : [],
+      frequency:    r[idx('frequency')] || 'daily',
+      required:     r[idx('required')] === true,
+      instructions: r[idx('instructions')] ? String(r[idx('instructions')]).split('|').map(s => s.trim()).filter(Boolean) : [],
     }))
 }
 

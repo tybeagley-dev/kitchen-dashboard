@@ -1,10 +1,12 @@
 import ChildCard from './ChildCard'
 import { useRoutines } from '../hooks/useRoutines'
+import { useChores } from '../hooks/useChores'
 import { SCHEDULE_LABELS } from '../utils/scheduleUtils'
 import { CONFIG } from '../config/config'
 
 export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
   const { routinesByChild, toggleRoutine, mode } = useRoutines(now)
+  const { chores, loading } = useChores()
 
   return (
     <section className="routines-section">
@@ -22,8 +24,10 @@ export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
             key={child.name}
             child={child}
             routines={routinesByChild[child.name] ?? []}
+            chores={chores}
+            choresLoading={loading}
             onToggle={toggleRoutine}
-            onSpin={() => onSpinChore(child)}
+            onSpin={() => onSpinChore(child, chores)}
             onScreenTime={() => onScreenTime(child)}
             onBucks={() => onBucks(child)}
           />

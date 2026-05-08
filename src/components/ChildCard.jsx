@@ -2,32 +2,48 @@ import { useRef, useState, useEffect } from 'react'
 import RoutineItem from './RoutineItem'
 import Confetti from './Confetti'
 import ScreenTimeModal from './ScreenTimeModal'
+import ChoreInstructionsModal from './ChoreInstructionsModal'
 import { useScreenBalance } from '../hooks/useScreenTime'
 import { useChorePoints, markChoreToday } from '../hooks/useChores'
-import { useAssignedChores, completeAssignedChore } from '../hooks/useAssignedChores'
+import { useAssignedChores, assignChores, completeAssignedChore } from '../hooks/useAssignedChores'
+import { recordChoreCompletion, isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
 import { CONFIG } from '../config/config'
 
-export default function ChildCard({ child, routines, onToggle, onSpin, onScreenTime, onBucks }) {
-  const assignedChores = useAssignedChores(child.name)
+function todayName() {
+  return new Date().toLocaleDateString('en-US', { weekday: 'long' })
+}
+
+export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onScreenTime, onBucks }) {
+  const assignedChores         = useAssignedChores(child.name)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
   const screenEarned = CONFIG.screenTime?.minutesPerChore ?? 30
 
-  // ScreenTimeModal state for post-completion prompt
-  const [completionEarned, setCompletionEarned] = useState(null) // null = closed
+  // Auto-assign required chores when chore list loads
+  useEffect(() => {
+    if (choresLoading || !chores?.length) return
+    const today    = todayName()
+    const required = chores.filter(c =>
+      c.required &&
+      (c.days.length === 0 || c.days.includes(today)) &&
+      !assignedChores.some(a => a.id === c.id) &&
+      isChoreAvailableThisWeek(c, child.name)
+    )
+    if (required.length) {
+      assignChores(child.name, required.map(c => ({ ...c, completed: false })))
+    }
+  }, [choresLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Build the full item list: routines + chore item(s)
-  const choreItems = assignedChores.length > 0
-    ? assignedChores.map(c => ({ ...c, isChore: true }))
-    : [{ id: '__spin__', label: 'Spin a Chore', icon: '🎡', completed: false, isSpin: true }]
+  const requiredChores = assignedChores.filter(c => c.required)
+  const spinChores     = assignedChores.filter(c => !c.required)
 
-  const allItems = [...routines, ...choreItems]
+  const allItems = [...routines, ...requiredChores, ...spinChores]
   const done     = allItems.filter(r => r.completed).length
   const total    = allItems.length
   const allDone  = total > 0 && done === total
   const progress = total > 0 ? (done / total) * 100 : 0
 
-  // Trigger confetti when allDone transitions false → true
+  // Confetti when allDone transitions false → true
   const prevAllDone = useRef(allDone)
   const [confettiKey, setConfettiKey] = useState(0)
   useEffect(() => {
@@ -35,12 +51,26 @@ export default function ChildCard({ child, routines, onToggle, onSpin, onScreenT
     prevAllDone.current = allDone
   }, [allDone])
 
+  // Modal states
+  const [completionEarned,  setCompletionEarned]  = useState(null) // null = closed
+  const [instructionsChore, setInstructionsChore] = useState(null)
+
   async function handleChoreComplete(chore) {
     completeAssignedChore(child.name, chore.id)
     await recordCompletion(child.name, chore.id, chore.bucks)
     addMinutes(screenEarned)
     markChoreToday(child.name)
+    recordChoreCompletion(child.name, chore.id, chore.required)
     setCompletionEarned(screenEarned)
+  }
+
+  function handleChoreTap(chore) {
+    if (chore.completed) return
+    if (chore.instructions?.length) {
+      setInstructionsChore(chore)
+    } else {
+      handleChoreComplete(chore)
+    }
   }
 
   return (
@@ -60,32 +90,31 @@ export default function ChildCard({ child, routines, onToggle, onSpin, onScreenT
       </div>
 
       <div className="progress-track">
-        <div
-          className="progress-fill"
-          style={{ width: `${progress}%`, background: child.color }}
-        />
+        <div className="progress-fill" style={{ width: `${progress}%`, background: child.color }} />
       </div>
 
       <div className="routine-list">
         {routines.map(r => (
+          <RoutineItem key={r.id} routine={r} onToggle={() => onToggle(child.name, r.id)} />
+        ))}
+
+        {requiredChores.map(chore => (
           <RoutineItem
-            key={r.id}
-            routine={r}
-            onToggle={() => onToggle(child.name, r.id)}
+            key={chore.id}
+            routine={chore}
+            onToggle={() => handleChoreTap(chore)}
           />
         ))}
 
-        {assignedChores.length > 0 ? (
-          // Show actual assigned chores
-          assignedChores.map(chore => (
+        {spinChores.length > 0 ? (
+          spinChores.map(chore => (
             <RoutineItem
               key={chore.id}
               routine={chore}
-              onToggle={() => !chore.completed && handleChoreComplete(chore)}
+              onToggle={() => handleChoreTap(chore)}
             />
           ))
         ) : (
-          // No chores assigned yet — show spin button as routine-style item
           <button
             className="spin-row-btn"
             onClick={onSpin}
@@ -116,6 +145,17 @@ export default function ChildCard({ child, routines, onToggle, onSpin, onScreenT
           child={child}
           earned={completionEarned}
           onClose={() => setCompletionEarned(null)}
+        />
+      )}
+
+      {instructionsChore && (
+        <ChoreInstructionsModal
+          chore={instructionsChore}
+          onComplete={() => {
+            handleChoreComplete(instructionsChore)
+            setInstructionsChore(null)
+          }}
+          onClose={() => setInstructionsChore(null)}
         />
       )}
     </div>

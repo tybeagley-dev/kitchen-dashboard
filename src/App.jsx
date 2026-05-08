@@ -13,7 +13,8 @@ import { useWeather } from './hooks/useWeather'
 export default function App() {
   const now = useClock()
   const weather = useWeather()
-  const [activeChoreChild, setActiveChoreChild] = useState(null)
+  const [activeChoreChild, setActiveChoreChild] = useState(null)  // { child, chores }
+
   const [activeScreenChild, setActiveScreenChild] = useState(null)
   const [activeBucksChild, setActiveBucksChild] = useState(null)
 
@@ -31,7 +32,7 @@ export default function App() {
         <div className="panel-right">
           <Routines
             now={now}
-            onSpinChore={setActiveChoreChild}
+            onSpinChore={(child, chores) => setActiveChoreChild({ child, chores })}
             onScreenTime={setActiveScreenChild}
             onBucks={setActiveBucksChild}
           />
@@ -40,7 +41,8 @@ export default function App() {
 
       {activeChoreChild && (
         <ChoreModal
-          child={activeChoreChild}
+          child={activeChoreChild.child}
+          chores={activeChoreChild.chores}
           onClose={() => setActiveChoreChild(null)}
         />
       )}
