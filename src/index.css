@@ -1175,6 +1175,30 @@ button {
 }
 .tidy-pill-stop:hover { opacity: 1; }
 
+/* Toothbrush timer button */
+.tooth-btn {
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  border: 1.5px solid var(--border);
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.tooth-btn:active { background: var(--border); }
+
+/* Toothbrush pill — blue-ish tint to distinguish from tidy */
+.tooth-pill {
+  border-color: #5b8dd9;
+  background: rgba(91,141,217,0.1);
+  color: #3a6bb5;
+}
+.tooth-pill.expired {
+  border-color: var(--accent-sage);
+  background: rgba(107,143,113,0.1);
+  color: var(--accent-sage);
+}
+
 /* ── Notes & Grocery Card ────────────────────────────────────────────────── */
 .notes-grocery-card {
   flex-shrink: 0;
@@ -1671,16 +1695,34 @@ button {
 }
 
 .week-day.selected {
-  background: var(--accent-warm);
+  background: rgba(107,143,113,0.12);
+  outline: 2px solid var(--accent-sage);
+  outline-offset: -2px;
 }
 
 .week-day.selected .week-day-name,
 .week-day.selected .week-day-num {
-  color: white;
+  color: var(--accent-sage);
 }
 
 .week-day.selected .event-dot {
-  background: rgba(255,255,255,0.8);
+  background: var(--accent-sage);
+}
+
+/* When today is also selected, keep warm fill but add sage ring */
+.week-day.today.selected {
+  background: var(--accent-warm);
+  outline: 2px solid var(--accent-sage);
+  outline-offset: -2px;
+}
+
+.week-day.today.selected .week-day-name,
+.week-day.today.selected .week-day-num {
+  color: white;
+}
+
+.week-day.today.selected .event-dot {
+  background: rgba(255,255,255,0.7);
 }
 
 /* ── Card edit button ────────────────────────────────────────────────────── */

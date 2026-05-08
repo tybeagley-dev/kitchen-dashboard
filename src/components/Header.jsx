@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { formatDate, formatTime, getGreeting } from '../utils/dateUtils'
 import { getWeatherInfo } from '../utils/weatherCodes'
 import { CONFIG } from '../config/config'
@@ -5,10 +6,21 @@ import TimerWidget from './TimerWidget'
 import TidyTimerButton from './TidyTimerButton'
 import TidyTimerPill from './TidyTimerPill'
 import { useTidyTimer } from '../hooks/useTidyTimer'
+import { useToothbrushTimer } from '../hooks/useToothbrushTimer'
+import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 
 export default function Header({ now, weather }) {
   const weatherInfo = weather ? getWeatherInfo(weather.code) : null
-  const tidy = useTidyTimer()
+  const tidy  = useTidyTimer()
+  const tooth = useToothbrushTimer()
+
+  useEffect(() => {
+    if (tooth.expired) startChimeLoop()
+    else stopChimeLoop()
+    return stopChimeLoop
+  }, [tooth.expired])
+
+  const toothTimeStr = `${tooth.minutes}:${String(tooth.seconds).padStart(2, '0')}`
 
   return (
     <header className="dashboard-header">
@@ -24,6 +36,27 @@ export default function Header({ now, weather }) {
       <div className="header-right">
         {/* Active per-child screen time timer */}
         <TimerWidget />
+
+        {/* Toothbrush timer */}
+        {tooth.active ? (
+          <div className={`tidy-pill tooth-pill ${tooth.expired ? 'expired' : ''}`}>
+            <span className="tidy-pill-icon">🪥</span>
+            <span className="tidy-pill-time">
+              {tooth.expired ? 'Brush done!' : `Brush · ${toothTimeStr}`}
+            </span>
+            <button
+              className="tidy-pill-stop"
+              onClick={() => { stopChimeLoop(); tooth.stopTimer() }}
+              aria-label="Stop toothbrush timer"
+            >
+              ×
+            </button>
+          </div>
+        ) : (
+          <button className="tooth-btn" onClick={tooth.startTimer} title="2-min toothbrush timer">
+            🪥
+          </button>
+        )}
 
         {/* Active family tidy timer pill */}
         {tidy.active && (
