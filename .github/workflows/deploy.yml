@@ -21,6 +21,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_APPS_SCRIPT_URL: ${{ secrets.VITE_APPS_SCRIPT_URL }}
+          VITE_PARENT_PIN: ${{ secrets.VITE_PARENT_PIN }}
 
       - uses: peaceiris/actions-gh-pages@v4
         with:

@@ -78,7 +78,7 @@ export const CONFIG = {
   // Chore completion awards Beagley Bucks (BB).
   // If appsScriptUrl is empty, demoChores are used and BB are stored locally.
   // See scripts/appsscript.gs for how to connect a Google Sheet.
-  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbxpTfLj9EfcEvzeq8nlY7WxTGeOgKp6PLcyli6GGjPUivq5YszQb4q4hKOx06MaJYTRpQ/exec',  // ← paste your deployed Apps Script URL here
+  appsScriptUrl: import.meta.env.VITE_APPS_SCRIPT_URL ?? '',  // ← paste your deployed Apps Script URL here
 
   demoChores: [
     { id: 'c1', label: 'Clean bathroom',          icon: '🚿', bucks: 10 },
@@ -132,7 +132,7 @@ export const CONFIG = {
 
   // ── Parent PIN ─────────────────────────────────────────────────────────────
   // Required to confirm Beagley Bucks deductions (Mom Store, real-money exchange)
-  parentPin: '052115',
+  parentPin: import.meta.env.VITE_PARENT_PIN ?? '',
 
   // ── Tidy Timer ─────────────────────────────────────────────────────────────
   // defaultMinutes: pre-selected duration when the popover opens
