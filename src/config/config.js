@@ -14,7 +14,7 @@ export const CONFIG = {
   children: [
     { name: 'Paige',   color: '#f51bf1', emoji: '🐱' },
     { name: 'Nolan',   color: '#3e3ee6', emoji: '🧑🏼‍🚀' },
-    { name: 'Jonah',  color: '#029602', emoji: '🐶' }, // ← update name & emoji
+    { name: 'Jonah',  color: '#029602', emoji: '⚾️' }, // ← update name & emoji
   ],
 
   // ── Weather ────────────────────────────────────────────────────────────────

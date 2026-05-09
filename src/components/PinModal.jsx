@@ -8,10 +8,14 @@ export default function PinModal({ onSuccess, onCancel, prompt = 'Adult PIN requ
   const [error, setError] = useState(false)
 
   useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onCancel() }
+    function onKey(e) {
+      if (e.key === 'Escape') { onCancel(); return }
+      if (e.key === 'Backspace') { handleBackspace(); return }
+      if (/^\d$/.test(e.key)) { handleDigit(e.key) }
+    }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onCancel])
+  }, [pin, onCancel]) // pin in deps so handleDigit/handleBackspace close over current value
 
   function handleDigit(d) {
     if (pin.length >= PIN_LENGTH) return
