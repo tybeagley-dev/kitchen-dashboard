@@ -444,21 +444,39 @@ function _parseIcal(text, color, now, cutoff) {
 function _expandEvent(props, color, now, cutoff) {
   const summary = props['SUMMARY'] || '(No title)'
   const dtstart = _parseIcalDate(props['DTSTART'])
+  const dtend   = _parseIcalDate(props['DTEND'])
   if (!dtstart) return []
+
+  // Duration in ms — used to compute end time for each recurring occurrence
+  const durationMs = (dtend && !dtstart.allDay)
+    ? dtend.jsDate.getTime() - dtstart.jsDate.getTime()
+    : 0
 
   const results = []
 
   if (props['RRULE']) {
-    // Expand recurring event within window
     const occurrences = _expandRRule(dtstart, props['RRULE'], now, cutoff)
     for (const d of occurrences) {
-      results.push({ date: _fmtDate(d), title: summary, time: dtstart.allDay ? '' : _fmtTime(d), color })
+      const endDate = durationMs > 0 ? new Date(d.getTime() + durationMs) : null
+      results.push({
+        date:    _fmtDate(d),
+        title:   summary,
+        time:    dtstart.allDay ? '' : _fmtTimeShort(d),
+        endTime: endDate ? _fmtTimeShort(endDate) : '',
+        color,
+      })
     }
   } else {
-    // Single event — check if it falls in window
     const d = dtstart.jsDate
     if (d >= _dayStart(now) && d < cutoff) {
-      results.push({ date: _fmtDate(d), title: summary, time: dtstart.allDay ? '' : _fmtTime(d), color })
+      const endDate = (dtend && !dtstart.allDay) ? dtend.jsDate : null
+      results.push({
+        date:    _fmtDate(d),
+        title:   summary,
+        time:    dtstart.allDay ? '' : _fmtTimeShort(d),
+        endTime: endDate ? _fmtTimeShort(endDate) : '',
+        color,
+      })
     }
   }
 
@@ -583,4 +601,12 @@ function _fmtTime(d) {
   const ap = h >= 12 ? 'PM' : 'AM'
   h = h % 12 || 12
   return `${h}:${mi} ${ap}`
+}
+
+function _fmtTimeShort(d) {
+  let h    = d.getHours()
+  const mi = d.getMinutes()
+  const ap = h >= 12 ? 'pm' : 'am'
+  h = h % 12 || 12
+  return mi === 0 ? `${h}${ap}` : `${h}:${String(mi).padStart(2, '0')}${ap}`
 }

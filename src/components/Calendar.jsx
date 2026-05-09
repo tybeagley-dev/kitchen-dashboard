@@ -60,7 +60,7 @@ export default function Calendar({ now }) {
                 <span className="event-title">{evt.title}</span>
                 <span className="event-meta">
                   {formatEventDate(evt.date, now)}
-                  {evt.time ? ` · ${evt.time}` : ''}
+                  {evt.time ? ` · ${evt.time}${evt.endTime && evt.endTime !== evt.time ? `–${evt.endTime}` : ''}` : ''}
                 </span>
               </div>
             </div>
