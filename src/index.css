@@ -797,6 +797,67 @@ button {
 
 .btn-spin-again:hover { border-color: var(--text-secondary); }
 
+/* ── Respin hint ────────────────────────────────────────────────────────── */
+.chore-respin-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 8px 0 0;
+}
+
+/* ── Bundle chooser (after two spins) ──────────────────────────────────── */
+.chore-choose-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
+}
+
+.chore-choose-label {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.chore-choose-bundles {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.chore-bundle-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.chore-bundle-btn:hover,
+.chore-bundle-btn:active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.chore-bundle-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.chore-bundle-item .chore-result-name {
+  flex: 1;
+  font-size: 13px;
+}
+
 /* ── Done Celebration ───────────────────────────────────────────────────── */
 .chore-done-panel {
   display: flex;

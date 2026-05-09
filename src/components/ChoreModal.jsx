@@ -4,22 +4,18 @@ import BuckBadge from './BuckBadge'
 import { assignChores, acceptChoresToSheets, getClaimedChoreIds } from '../hooks/useAssignedChores'
 import { isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
 
-const PHASE = { READY: 'ready', RESULT: 'result' }
+const PHASE = { READY: 'ready', RESULT: 'result', RESPIN: 'respin', CHOOSE: 'choose' }
 const MODE  = { TWO_ONE: '2x1', ONE_TWO: '1x2' }
 
 function todayName() {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' })
 }
 
-function pickUnique(pool, count) {
-  const shuffled = [...pool].sort(() => Math.random() - 0.5)
-  return shuffled.slice(0, Math.min(count, shuffled.length))
-}
-
 export default function ChoreModal({ child, chores = [], onClose }) {
-  const [phase,   setPhase]   = useState(PHASE.READY)
-  const [mode,    setMode]    = useState(MODE.TWO_ONE)
-  const [results, setResults] = useState([])
+  const [phase,        setPhase]        = useState(PHASE.READY)
+  const [mode,         setMode]         = useState(MODE.TWO_ONE)
+  const [firstBundle,  setFirstBundle]  = useState([])
+  const [secondBundle, setSecondBundle] = useState([])
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
@@ -27,7 +23,7 @@ export default function ChoreModal({ child, chores = [], onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function filteredPool() {
+  function filteredPool(excludeIds = []) {
     const targetBucks = mode === MODE.TWO_ONE ? 1 : 2
     const claimed     = getClaimedChoreIds(child.name)
     const today       = todayName()
@@ -36,43 +32,51 @@ export default function ChoreModal({ child, chores = [], onClose }) {
       !c.required &&
       (c.days.length === 0 || c.days.includes(today)) &&
       isChoreAvailableThisWeek(c, child.name) &&
-      !claimed.has(c.id)
+      !claimed.has(c.id) &&
+      !excludeIds.includes(c.id)
     )
   }
 
-  function handleSpinEnd(firstChore) {
+  function buildBundle(firstChore, excludeIds = []) {
     if (mode === MODE.TWO_ONE) {
-      const pool   = filteredPool()
-      const second = pool.filter(c => c.id !== firstChore.id)
-      const extra  = second.length > 0
-        ? second[Math.floor(Math.random() * second.length)]
-        : null
-      setResults(extra ? [firstChore, extra] : [firstChore])
-    } else {
-      setResults([firstChore])
+      const pool   = filteredPool(excludeIds).filter(c => c.id !== firstChore.id)
+      const second = pool.length > 0 ? pool[Math.floor(Math.random() * pool.length)] : null
+      return second ? [firstChore, second] : [firstChore]
     }
-    setPhase(PHASE.RESULT)
+    return [firstChore]
   }
 
-  function handleAccept() {
-    const mapped = results.map(c => ({ ...c, completed: false }))
-    assignChores(child.name, mapped)
-    acceptChoresToSheets(child, results) // fire-and-forget: persists to Sheets for cross-device visibility
+  function handleSpinEnd(firstChore) {
+    if (phase === PHASE.READY) {
+      setFirstBundle(buildBundle(firstChore))
+      setPhase(PHASE.RESULT)
+    } else if (phase === PHASE.RESPIN) {
+      setSecondBundle(buildBundle(firstChore, firstBundle.map(c => c.id)))
+      setPhase(PHASE.CHOOSE)
+    }
+  }
+
+  function handleAccept(bundle) {
+    assignChores(child.name, bundle.map(c => ({ ...c, completed: false })))
+    acceptChoresToSheets(child, bundle)
     onClose()
   }
 
   function handleSpinAgain() {
-    setResults([])
-    setPhase(PHASE.READY)
+    setPhase(PHASE.RESPIN)
   }
 
   function switchMode(newMode) {
     setMode(newMode)
     setPhase(PHASE.READY)
-    setResults([])
+    setFirstBundle([])
+    setSecondBundle([])
   }
 
-  const pool = filteredPool()
+  const firstPool   = filteredPool()
+  const respinPool  = filteredPool(firstBundle.map(c => c.id))
+  const activePool  = phase === PHASE.RESPIN ? respinPool : firstPool
+  const isSpinPhase = phase === PHASE.READY || phase === PHASE.RESPIN
 
   return (
     <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -103,36 +107,71 @@ export default function ChoreModal({ child, chores = [], onClose }) {
           </button>
         </div>
 
-        {pool.length === 0 ? (
-          <div className="modal-loading">
-            No {mode === MODE.TWO_ONE ? '1-buck' : '2-buck'} chores available today
-          </div>
-        ) : (
-          <div className={`modal-wheel-wrap ${phase !== PHASE.READY ? 'dimmed' : ''}`}>
-            <SpinningWheel chores={pool} onSpinEnd={handleSpinEnd} />
+        {/* ── CHOOSE phase: pick one of two bundles ── */}
+        {phase === PHASE.CHOOSE && (
+          <div className="chore-choose-panel">
+            <p className="chore-choose-label">Pick your bundle:</p>
+            <div className="chore-choose-bundles">
+              {[firstBundle, secondBundle].map((bundle, i) => (
+                <button key={i} className="chore-bundle-btn" onClick={() => handleAccept(bundle)}>
+                  {bundle.map(c => (
+                    <div key={c.id} className="chore-bundle-item">
+                      <span className="chore-result-icon">{c.icon}</span>
+                      <span className="chore-result-name">{c.label}</span>
+                      <BuckBadge amount={c.bucks} />
+                    </div>
+                  ))}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
-        {phase === PHASE.RESULT && results.length > 0 && (
-          <div className="chore-result-panel">
-            <div className="chore-result-cards">
-              {results.map(chore => (
-                <div key={chore.id} className="chore-result-card">
-                  <span className="chore-result-icon">{chore.icon}</span>
-                  <span className="chore-result-name">{chore.label}</span>
-                  <BuckBadge amount={chore.bucks} />
+        {/* ── READY / RESULT / RESPIN phases: wheel + result ── */}
+        {phase !== PHASE.CHOOSE && (
+          <>
+            {activePool.length === 0 ? (
+              <div className="modal-loading">
+                No {mode === MODE.TWO_ONE ? '1-buck' : '2-buck'} chores available today
+              </div>
+            ) : (
+              <div className={`modal-wheel-wrap ${!isSpinPhase ? 'dimmed' : ''}`}>
+                <SpinningWheel
+                  key={phase}
+                  chores={activePool}
+                  onSpinEnd={handleSpinEnd}
+                />
+              </div>
+            )}
+
+            {phase === PHASE.RESPIN && (
+              <p className="chore-respin-hint">Spin #2 — then choose your favorite!</p>
+            )}
+
+            {phase === PHASE.RESULT && firstBundle.length > 0 && (
+              <div className="chore-result-panel">
+                <div className="chore-result-cards">
+                  {firstBundle.map(chore => (
+                    <div key={chore.id} className="chore-result-card">
+                      <span className="chore-result-icon">{chore.icon}</span>
+                      <span className="chore-result-name">{chore.label}</span>
+                      <BuckBadge amount={chore.bucks} />
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <div className="chore-result-actions">
-              <button className="btn-complete" onClick={handleAccept}>
-                ✓ These are my chores!
-              </button>
-              <button className="btn-spin-again" onClick={handleSpinAgain}>
-                Spin Again
-              </button>
-            </div>
-          </div>
+                <div className="chore-result-actions">
+                  <button className="btn-complete" onClick={() => handleAccept(firstBundle)}>
+                    ✓ These are my chores!
+                  </button>
+                  {respinPool.length > 0 && (
+                    <button className="btn-spin-again" onClick={handleSpinAgain}>
+                      Spin Again
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
