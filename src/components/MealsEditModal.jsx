@@ -5,8 +5,8 @@ const DAY_SHORT = { Sunday: 'Sun', Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'We
 export default function MealsEditModal({ meals, dayOrder, onSave, onClose }) {
   const [draft, setDraft] = useState(() =>
     dayOrder.map(day => {
-      const m = meals.find(m => m.day === day) ?? { day, main: '', note: '' }
-      return { day, main: m.main, note: m.note }
+      const m = meals.find(m => m.day === day) ?? { day, main: '', note: '', lunch: '' }
+      return { day, main: m.main, note: m.note, lunch: m.lunch ?? '' }
     })
   )
 
@@ -32,16 +32,23 @@ export default function MealsEditModal({ meals, dayOrder, onSave, onClose }) {
         <h2 className="modal-title">Edit Meal Plan</h2>
 
         <div className="meals-edit-list">
-          {draft.map(({ day, main, note }) => (
+          {draft.map(({ day, main, note, lunch }) => (
             <div key={day} className="meals-edit-row">
               <span className="meals-edit-day">{DAY_SHORT[day]}</span>
               <div className="meals-edit-fields">
                 <input
                   className="meals-edit-input meals-edit-main"
                   type="text"
-                  placeholder="Main dish"
+                  placeholder="Dinner"
                   value={main}
                   onChange={e => handleChange(day, 'main', e.target.value)}
+                />
+                <input
+                  className="meals-edit-input meals-edit-note"
+                  type="text"
+                  placeholder="Lunch (summer)"
+                  value={lunch}
+                  onChange={e => handleChange(day, 'lunch', e.target.value)}
                 />
                 <input
                   className="meals-edit-input meals-edit-note"

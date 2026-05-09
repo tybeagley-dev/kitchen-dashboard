@@ -21,6 +21,7 @@ export function useTidyTimer() {
   // Tick while active
   useEffect(() => {
     if (!timer) return
+    setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [timer])

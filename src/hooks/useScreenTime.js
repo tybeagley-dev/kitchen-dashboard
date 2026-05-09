@@ -87,8 +87,9 @@ export function startChildTimer(childName) {
   saveBalance(obj)
   sheetsAddScreenTime(childName, -deducted)
 
-  const endTime = Date.now() + bufferMin * 60 * 1000
-  localStorage.setItem(TIMER_KEY, JSON.stringify({ child: childName, endTime, deducted }))
+  const totalMs = bufferMin * 60 * 1000
+  const endTime = Date.now() + totalMs
+  localStorage.setItem(TIMER_KEY, JSON.stringify({ child: childName, endTime, deducted, totalMs }))
   window.dispatchEvent(new Event('fam_timer_update'))
 }
 
@@ -96,9 +97,9 @@ export function startChildTimer(childName) {
 export function stopChildTimer({ expired = false } = {}) {
   const timer = loadTimer()
   if (!expired && timer) {
-    const msLeft  = timer.endTime - Date.now()
-    const minLeft = Math.ceil(Math.max(0, msLeft) / 60000)
-    const refund  = Math.min(minLeft, timer.deducted ?? 0)
+    const msLeft  = Math.max(0, timer.endTime - Date.now())
+    const totalMs = timer.totalMs ?? (CONFIG.screenTime?.timerBufferMinutes ?? 35) * 60 * 1000
+    const refund  = Math.round((msLeft / totalMs) * (timer.deducted ?? 0))
     if (refund > 0) {
       const obj = loadBalance()
       obj[timer.child] = (obj[timer.child] ?? 0) + refund
@@ -124,6 +125,7 @@ export function useActiveChildTimer() {
 
   useEffect(() => {
     if (!timer) return
+    setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
   }, [timer])

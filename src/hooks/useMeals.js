@@ -8,8 +8,9 @@ const DAY_ORDER = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 function configMealsToArray() {
   return DAY_ORDER.map(day => ({
     day,
-    main: CONFIG.meals?.[day]?.main ?? '',
-    note: CONFIG.meals?.[day]?.note ?? '',
+    main:  CONFIG.meals?.[day]?.main  ?? '',
+    note:  CONFIG.meals?.[day]?.note  ?? '',
+    lunch: CONFIG.meals?.[day]?.lunch ?? '',
   }))
 }
 
@@ -47,17 +48,17 @@ export function useMeals() {
     hydrate()
   }, [])
 
-  const updateMeal = useCallback((day, main, note) => {
+  const updateMeal = useCallback((day, main, note, lunch = '') => {
     setMeals(prev => {
-      const next = prev.map(m => m.day === day ? { day, main, note } : m)
+      const next = prev.map(m => m.day === day ? { day, main, note, lunch } : m)
       saveLocal(next)
       return next
     })
-    sheetsGet({ action: 'setMeal', day, main: encodeURIComponent(main), note: encodeURIComponent(note) })
+    sheetsGet({ action: 'setMeal', day, main: encodeURIComponent(main), note: encodeURIComponent(note), lunch: encodeURIComponent(lunch) })
   }, [])
 
   const getMealForDay = useCallback((dayName) => {
-    return meals.find(m => m.day === dayName) ?? { day: dayName, main: '', note: '' }
+    return meals.find(m => m.day === dayName) ?? { day: dayName, main: '', note: '', lunch: '' }
   }, [meals])
 
   return { meals, updateMeal, getMealForDay, DAY_ORDER }

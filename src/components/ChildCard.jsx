@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import RoutineItem from './RoutineItem'
 import Confetti from './Confetti'
-import ScreenTimeModal from './ScreenTimeModal'
 import ChoreInstructionsModal from './ChoreInstructionsModal'
 import { useScreenBalance } from '../hooks/useScreenTime'
 import { useChorePoints, markChoreToday } from '../hooks/useChores'
@@ -17,7 +16,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
   const assignedChores         = useAssignedChores(child.name)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
-  const screenEarned = CONFIG.screenTime?.minutesPerChore ?? 30
+  const minutesPerBuck = Math.round((CONFIG.screenTime?.minutesPerChore ?? 30) / 2)
 
   // Auto-assign required chores when chore list loads
   useEffect(() => {
@@ -52,16 +51,15 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
   }, [allDone])
 
   // Modal states
-  const [completionEarned,  setCompletionEarned]  = useState(null) // null = closed
   const [instructionsChore, setInstructionsChore] = useState(null)
 
   async function handleChoreComplete(chore) {
     completeAssignedChore(child.name, chore.id)
     await recordCompletion(child.name, chore.id, chore.bucks)
-    addMinutes(screenEarned)
+    addMinutes(chore.bucks * minutesPerBuck)
     markChoreToday(child.name)
     recordChoreCompletion(child.name, chore.id, chore.required)
-    setCompletionEarned(screenEarned)
+    onScreenTime(child)
   }
 
   function handleChoreTap(chore) {
@@ -139,14 +137,6 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
           {balance > 0 ? `${balance} min` : 'Screen Time'}
         </button>
       </div>
-
-      {completionEarned != null && (
-        <ScreenTimeModal
-          child={child}
-          earned={completionEarned}
-          onClose={() => setCompletionEarned(null)}
-        />
-      )}
 
       {instructionsChore && (
         <ChoreInstructionsModal

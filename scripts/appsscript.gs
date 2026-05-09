@@ -78,7 +78,7 @@ function doGet(e) {
     else if (action === 'getCalendarEvents') result = getCalendarEvents()
     else if (action === 'debugCalendar')     result = debugCalendar()
     else if (action === 'getMeals')          result = getMeals()
-    else if (action === 'setMeal')           result = setMeal(e.parameter.day, decodeURIComponent(e.parameter.main || ''), decodeURIComponent(e.parameter.note || ''))
+    else if (action === 'setMeal')           result = setMeal(e.parameter.day, decodeURIComponent(e.parameter.main || ''), decodeURIComponent(e.parameter.note || ''), decodeURIComponent(e.parameter.lunch || ''))
     else if (action === 'getNotes')          result = getNotes()
     else if (action === 'addNote')           result = addNote(e.parameter.id, decodeURIComponent(e.parameter.text || ''))
     else if (action === 'removeNote')        result = removeNote(e.parameter.id)
@@ -239,20 +239,26 @@ function getMeals() {
   const { rows, idx } = sheetData(TABS.MEALS)
   return rows
     .filter(r => r[idx('day')] !== '')
-    .map(r => ({ day: r[idx('day')], main: r[idx('main')] || '', note: r[idx('note')] || '' }))
+    .map(r => ({
+      day:   r[idx('day')],
+      main:  r[idx('main')]  || '',
+      note:  r[idx('note')]  || '',
+      lunch: idx('lunch') >= 0 ? (r[idx('lunch')] || '') : '',
+    }))
 }
 
-function setMeal(day, main, note) {
+function setMeal(day, main, note, lunch) {
   if (!day) return { success: false, error: 'Missing day' }
   const { sheet, rows, idx } = sheetData(TABS.MEALS)
   for (let i = 0; i < rows.length; i++) {
     if (rows[i][idx('day')] === day) {
       sheet.getRange(i + 2, idx('main') + 1).setValue(main)
       sheet.getRange(i + 2, idx('note') + 1).setValue(note)
+      if (idx('lunch') >= 0) sheet.getRange(i + 2, idx('lunch') + 1).setValue(lunch || '')
       return { success: true }
     }
   }
-  // Upsert — day row didn't exist yet
+  // Upsert — day row didn't exist yet (sheet should always be pre-populated)
   sheet.appendRow([day, main, note])
   return { success: true }
 }
