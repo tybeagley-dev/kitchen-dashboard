@@ -34,6 +34,20 @@ export function recordChoreCompletion(childName, choreId, isRequired) {
   saveFreq(data)
 }
 
+// Merge Sheets weekly completion data into the local freq cache so cross-device
+// completions are reflected without a full page reload.
+export function hydrateWeeklyFromHistory(weekCompleted, chores) {
+  const data = loadFreq()
+  for (const [child, choreIds] of Object.entries(weekCompleted)) {
+    data.byChild[child] = [...new Set([...(data.byChild[child] ?? []), ...choreIds])]
+    for (const id of choreIds) {
+      const def = chores.find(c => c.id === id)
+      if (def && !def.required && !data.global.includes(id)) data.global.push(id)
+    }
+  }
+  saveFreq(data)
+}
+
 export function isChoreAvailableThisWeek(chore, childName) {
   if (chore.frequency !== 'weekly') return true
   const data = loadFreq()

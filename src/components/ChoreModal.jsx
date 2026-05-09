@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import SpinningWheel from './SpinningWheel'
 import BuckBadge from './BuckBadge'
-import { assignChores, getClaimedChoreIds } from '../hooks/useAssignedChores'
+import { assignChores, acceptChoresToSheets, getClaimedChoreIds } from '../hooks/useAssignedChores'
 import { isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
 
 const PHASE = { READY: 'ready', RESULT: 'result' }
@@ -55,7 +55,9 @@ export default function ChoreModal({ child, chores = [], onClose }) {
   }
 
   function handleAccept() {
-    assignChores(child.name, results.map(c => ({ ...c, completed: false })))
+    const mapped = results.map(c => ({ ...c, completed: false }))
+    assignChores(child.name, mapped)
+    acceptChoresToSheets(child, results) // fire-and-forget: persists to Sheets for cross-device visibility
     onClose()
   }
 

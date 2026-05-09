@@ -13,7 +13,7 @@ function todayName() {
 }
 
 export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onScreenTime, onBucks }) {
-  const assignedChores         = useAssignedChores(child.name)
+  const assignedChores         = useAssignedChores(child.name, chores)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
   const minutesPerBuck = Math.round((CONFIG.screenTime?.minutesPerChore ?? 30) / 2)

@@ -19,8 +19,10 @@
  *      Kid 3 | 0
  *
  *    History (row 1 = headers):
- *      timestamp | child | choreId | choreLabel | bucksEarned
+ *      timestamp | child | choreId | choreLabel | bucksEarned | status
  *      (leave empty — script fills this in)
+ *      status values: "accepted" (chore spun & claimed) or "completed" (chore done)
+ *      Existing rows without a status value are treated as "completed".
  *
  *    SpendHistory (row 1 = headers):
  *      timestamp | child | amount
@@ -69,6 +71,8 @@ function doGet(e) {
     if      (action === 'getChores')         result = getChores()
     else if (action === 'getBucks')          result = getBucks()
     else if (action === 'completeChore')     result = completeChore(e.parameter.child, e.parameter.choreId)
+    else if (action === 'acceptChore')       result = acceptChore(e.parameter.child, e.parameter.choreId, decodeURIComponent(e.parameter.choreLabel || ''), Number(e.parameter.bucks))
+    else if (action === 'getChoreState')     result = getChoreState(e.parameter.date)
     else if (action === 'adjustBucks')       result = adjustBucks(e.parameter.child, Number(e.parameter.delta))
     else if (action === 'getScreenTime')     result = getScreenTime()
     else if (action === 'addScreenTime')     result = addScreenTime(e.parameter.child, Number(e.parameter.delta))
@@ -148,10 +152,72 @@ function completeChore(child, choreId) {
   _addToBucks(child, bucksEarned)
 
   ss.getSheetByName(TABS.HISTORY).appendRow([
-    new Date(), child, choreId, choreLabel, bucksEarned
+    new Date(), child, choreId, choreLabel, bucksEarned, 'completed'
   ])
 
   return { success: true, bucksEarned }
+}
+
+function acceptChore(child, choreId, choreLabel, bucks) {
+  if (!child || !choreId) return { success: false, error: 'Missing params' }
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(TABS.HISTORY)
+    .appendRow([new Date(), child, choreId, choreLabel, bucks, 'accepted'])
+  return { success: true }
+}
+
+// Returns today's chore assignment state (accepted/completed) plus this week's
+// completed chore IDs — used by devices to reconcile local cache with Sheets.
+//
+// Response shape:
+//   today:        { childName: { choreId: { choreLabel, bucks, status } } }
+//   weekCompleted: { childName: [choreId, ...] }
+function getChoreState(date) {
+  if (!date) return { today: {}, weekCompleted: {} }
+
+  // Week start = Monday of the given date
+  const [dy, dm, dd] = date.split('-').map(Number)
+  const ref = new Date(dy, dm - 1, dd)
+  const dow = ref.getDay()
+  const weekStartDate = new Date(ref)
+  weekStartDate.setDate(ref.getDate() + (dow === 0 ? -6 : 1 - dow))
+  weekStartDate.setHours(0, 0, 0, 0)
+
+  const { rows, idx } = sheetData(TABS.HISTORY)
+  const statusIdx = idx('status')
+  const today = {}
+  const weekCompleted = {}
+
+  for (const row of rows) {
+    const ts = row[idx('timestamp')]
+    if (!ts) continue
+    const rowDate = ts instanceof Date ? ts : new Date(ts)
+    if (rowDate < weekStartDate) continue
+
+    const child     = String(row[idx('child')] || '')
+    const choreId   = String(row[idx('choreId')] || '')
+    const choreLabel = String(row[idx('choreLabel')] || '')
+    const bucks     = Number(row[idx('bucksEarned')] || 0)
+    const status    = (statusIdx >= 0 && row[statusIdx]) ? String(row[statusIdx]) : 'completed'
+    const rowDateKey = _routineDateKey(rowDate)
+
+    // Today's assignments
+    if (rowDateKey === date) {
+      if (!today[child]) today[child] = {}
+      // completed takes priority over accepted for the same choreId
+      if (!today[child][choreId] || status === 'completed') {
+        today[child][choreId] = { choreLabel, bucks, status }
+      }
+    }
+
+    // Weekly completion tracking (for frequency filter)
+    if (status === 'completed') {
+      if (!weekCompleted[child]) weekCompleted[child] = []
+      if (!weekCompleted[child].includes(choreId)) weekCompleted[child].push(choreId)
+    }
+  }
+
+  return { today, weekCompleted }
 }
 
 function adjustBucks(child, delta) {
