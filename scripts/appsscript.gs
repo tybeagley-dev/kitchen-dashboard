@@ -294,20 +294,26 @@ function getRoutineState(date) {
 
 function setRoutineItem(date, key, value) {
   if (!date || !key) return { success: false, error: 'Missing params' }
-  const boolVal = value === 'true' || value === true
-  const { sheet, rows, idx } = sheetData(TABS.ROUTINE_LOG)
-  for (let i = 0; i < rows.length; i++) {
-    if (_routineDateKey(rows[i][idx('date')]) === date) {
-      let state = {}
-      try { state = JSON.parse(rows[i][idx('state')] || '{}') } catch { /* ignore */ }
-      state[key] = boolVal
-      sheet.getRange(i + 2, idx('state') + 1).setValue(JSON.stringify(state))
-      return { success: true }
+  const lock = LockService.getScriptLock()
+  lock.waitLock(10000)
+  try {
+    const boolVal = value === 'true' || value === true
+    const { sheet, rows, idx } = sheetData(TABS.ROUTINE_LOG)
+    for (let i = 0; i < rows.length; i++) {
+      if (_routineDateKey(rows[i][idx('date')]) === date) {
+        let state = {}
+        try { state = JSON.parse(rows[i][idx('state')] || '{}') } catch { /* ignore */ }
+        state[key] = boolVal
+        sheet.getRange(i + 2, idx('state') + 1).setValue(JSON.stringify(state))
+        return { success: true }
+      }
     }
+    // First completion for this date — store date as plain text to avoid auto-conversion
+    sheet.appendRow(["'" + date, JSON.stringify({ [key]: boolVal })])
+    return { success: true }
+  } finally {
+    lock.releaseLock()
   }
-  // First completion for this date — store date as plain text to avoid auto-conversion
-  sheet.appendRow(["'" + date, JSON.stringify({ [key]: boolVal })])
-  return { success: true }
 }
 
 // ── Notes ─────────────────────────────────────────────────────────────────────
