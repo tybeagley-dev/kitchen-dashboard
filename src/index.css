@@ -1969,6 +1969,10 @@ button {
   color: var(--text-secondary);
   background: var(--surface-2);
   transition: border-color 0.15s, background 0.15s, color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .chore-mode-btn.active {
@@ -2006,7 +2010,32 @@ button {
   text-align: center;
   line-height: 1.2;
 }
-.chore-result-bucks { font-size: 0.78rem; color: var(--text-secondary); }
+/* .chore-result-bucks replaced by BuckBadge */
+
+/* ── Buck Badge ──────────────────────────────────────────────────────────── */
+.buck-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.7em;
+  height: 1.7em;
+  padding: 0 0.45em;
+  background: linear-gradient(145deg, #f5d050, #c49220);
+  color: #3a2000;
+  font-weight: 800;
+  font-size: 0.82rem;
+  border-radius: 999px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.35);
+  vertical-align: middle;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.buck-badge-lg {
+  min-width: 2.2em;
+  height: 2.2em;
+  font-size: 1rem;
+  padding: 0 0.55em;
+}
 
 /* ── Screen Time earned line ─────────────────────────────────────────────── */
 .st-earned-line {

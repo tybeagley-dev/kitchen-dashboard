@@ -58,6 +58,7 @@ const TABS = {
   CALENDARS:     'Calendars',
   MEALS:         'Meals',
   NOTES:         'Notes',
+  ROUTINE_LOG:   'RoutineLog',
 }
 
 function doGet(e) {
@@ -79,6 +80,8 @@ function doGet(e) {
     else if (action === 'debugCalendar')     result = debugCalendar()
     else if (action === 'getMeals')          result = getMeals()
     else if (action === 'setMeal')           result = setMeal(e.parameter.day, decodeURIComponent(e.parameter.main || ''), decodeURIComponent(e.parameter.note || ''), decodeURIComponent(e.parameter.lunch || ''))
+    else if (action === 'getRoutineState')   result = getRoutineState(e.parameter.date)
+    else if (action === 'setRoutineItem')    result = setRoutineItem(e.parameter.date, e.parameter.key, e.parameter.value)
     else if (action === 'getNotes')          result = getNotes()
     else if (action === 'addNote')           result = addNote(e.parameter.id, decodeURIComponent(e.parameter.text || ''))
     else if (action === 'removeNote')        result = removeNote(e.parameter.id)
@@ -260,6 +263,50 @@ function setMeal(day, main, note, lunch) {
   }
   // Upsert — day row didn't exist yet (sheet should always be pre-populated)
   sheet.appendRow([day, main, note])
+  return { success: true }
+}
+
+// ── Routine Log ───────────────────────────────────────────────────────────────
+// RoutineLog tab columns: date | state
+// state is a JSON string: {"Paige__brush-teeth":true, ...}
+
+function _routineDateKey(val) {
+  if (val instanceof Date) {
+    const y = val.getFullYear()
+    const m = String(val.getMonth() + 1).padStart(2, '0')
+    const d = String(val.getDate()).padStart(2, '0')
+    return y + '-' + m + '-' + d
+  }
+  return String(val)
+}
+
+function getRoutineState(date) {
+  if (!date) return { date: '', completed: {} }
+  const { rows, idx } = sheetData(TABS.ROUTINE_LOG)
+  const row = rows.find(r => _routineDateKey(r[idx('date')]) === date)
+  if (!row) return { date, completed: {} }
+  try {
+    return { date, completed: JSON.parse(row[idx('state')] || '{}') }
+  } catch {
+    return { date, completed: {} }
+  }
+}
+
+function setRoutineItem(date, key, value) {
+  if (!date || !key) return { success: false, error: 'Missing params' }
+  const boolVal = value === 'true' || value === true
+  const { sheet, rows, idx } = sheetData(TABS.ROUTINE_LOG)
+  for (let i = 0; i < rows.length; i++) {
+    if (_routineDateKey(rows[i][idx('date')]) === date) {
+      let state = {}
+      try { state = JSON.parse(rows[i][idx('state')] || '{}') } catch { /* ignore */ }
+      state[key] = boolVal
+      sheet.getRange(i + 2, idx('state') + 1).setValue(JSON.stringify(state))
+      return { success: true }
+    }
+  }
+  // First completion for this date — store date as plain text to avoid auto-conversion
+  sheet.appendRow(["'" + date, JSON.stringify({ [key]: boolVal })])
   return { success: true }
 }
 

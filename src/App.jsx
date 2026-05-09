@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import Calendar from './components/Calendar'
 import MealPlan from './components/MealPlan'
@@ -9,10 +9,22 @@ import ScreenTimeModal from './components/ScreenTimeModal'
 import BucksModal from './components/BucksModal'
 import { useClock } from './hooks/useClock'
 import { useWeather } from './hooks/useWeather'
+import { unlockAudio } from './utils/chime'
 
 export default function App() {
   const now = useClock()
   const weather = useWeather()
+
+  // Unlock Web Audio on first user gesture so chimes work on iOS Safari
+  useEffect(() => {
+    const unlock = () => unlockAudio()
+    document.addEventListener('touchstart', unlock, { once: true })
+    document.addEventListener('click',      unlock, { once: true })
+    return () => {
+      document.removeEventListener('touchstart', unlock)
+      document.removeEventListener('click',      unlock)
+    }
+  }, [])
   const [activeChoreChild, setActiveChoreChild] = useState(null)  // { child, chores }
 
   const [activeScreenChild, setActiveScreenChild] = useState(null)

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import SpinningWheel from './SpinningWheel'
+import BuckBadge from './BuckBadge'
 import { assignChores, getClaimedChoreIds } from '../hooks/useAssignedChores'
 import { isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
 
@@ -90,13 +91,13 @@ export default function ChoreModal({ child, chores = [], onClose }) {
             className={`chore-mode-btn ${mode === MODE.TWO_ONE ? 'active' : ''}`}
             onClick={() => switchMode(MODE.TWO_ONE)}
           >
-            2 × 🪙1
+            <BuckBadge amount={1} /> × 2 chores
           </button>
           <button
             className={`chore-mode-btn ${mode === MODE.ONE_TWO ? 'active' : ''}`}
             onClick={() => switchMode(MODE.ONE_TWO)}
           >
-            1 × 🪙🪙2
+            <BuckBadge amount={2} /> × 1 chore
           </button>
         </div>
 
@@ -117,7 +118,7 @@ export default function ChoreModal({ child, chores = [], onClose }) {
                 <div key={chore.id} className="chore-result-card">
                   <span className="chore-result-icon">{chore.icon}</span>
                   <span className="chore-result-name">{chore.label}</span>
-                  <span className="chore-result-bucks">🪙{chore.bucks}</span>
+                  <BuckBadge amount={chore.bucks} />
                 </div>
               ))}
             </div>

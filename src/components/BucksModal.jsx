@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useChorePoints } from '../hooks/useChores'
+import BuckBadge from './BuckBadge'
 import PinModal from './PinModal'
 
 const PHASE = { VIEW: 'view', PIN: 'pin', ADJUST: 'adjust' }
@@ -48,7 +49,7 @@ export default function BucksModal({ child, onClose }) {
           </div>
           <div>
             <h2 className="modal-title">{child.name}'s Bucks</h2>
-            <p className="bucks-modal-balance">🪙 {bucks} Beagley Bucks</p>
+            <p className="bucks-modal-balance"><BuckBadge amount={bucks} /> Beagley Bucks</p>
           </div>
         </div>
 
@@ -60,7 +61,7 @@ export default function BucksModal({ child, onClose }) {
               className="btn-spend"
               onClick={() => { setAmount(1); setPhase(PHASE.PIN) }}
             >
-              Adjust 🪙
+              Adjust Bucks
             </button>
           </div>
         )}
@@ -88,7 +89,7 @@ export default function BucksModal({ child, onClose }) {
               <button className="stepper-btn" onClick={increment}>+</button>
             </div>
             <p className="spend-remaining">
-              Balance after: <strong>🪙 {resultBucks}</strong>
+              Balance after: <BuckBadge amount={resultBucks} size="lg" />
             </p>
             <div className="spend-actions">
               <button

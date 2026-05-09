@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import BuckBadge from './BuckBadge'
 
 export default function ChoreInstructionsModal({ chore, onComplete, onClose }) {
   const [checked, setChecked] = useState(() =>
@@ -27,7 +28,7 @@ export default function ChoreInstructionsModal({ chore, onComplete, onClose }) {
           <div>
             <h2 className="modal-title">{chore.label}</h2>
             <p className="instructions-bucks">
-              {'🪙'.repeat(chore.bucks)} {chore.bucks} Beagley Buck{chore.bucks !== 1 ? 's' : ''}
+              <BuckBadge amount={chore.bucks} /> {chore.bucks} Beagley Buck{chore.bucks !== 1 ? 's' : ''}
             </p>
           </div>
         </div>
