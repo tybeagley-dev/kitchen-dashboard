@@ -15,6 +15,14 @@ export default function App() {
   const now = useClock()
   const weather = useWeather()
 
+  // ?clearcache in the URL wipes localStorage and reloads cleanly
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has('clearcache')) {
+      localStorage.clear()
+      window.location.replace(window.location.pathname)
+    }
+  }, [])
+
   // Unlock Web Audio on first user gesture so chimes work on iOS Safari
   useEffect(() => {
     const unlock = () => unlockAudio()
