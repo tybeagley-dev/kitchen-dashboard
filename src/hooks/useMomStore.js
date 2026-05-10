@@ -29,6 +29,28 @@ export async function buyMomStoreItem(child, itemId) {
   return sheetsGet({ action: 'buyMomStoreItem', child, itemId })
 }
 
+export function usePurchases(childName) {
+  const [purchases, setPurchases] = useState([])
+  const [loading,   setLoading]   = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const params = { action: 'getPurchases' }
+    if (childName) params.child = childName
+    const data = await sheetsGet(params)
+    setPurchases(Array.isArray(data) ? data : [])
+    setLoading(false)
+  }, [childName])
+
+  useEffect(() => { load() }, [load])
+
+  return { purchases, loading, reload: load }
+}
+
+export async function redeemPurchase(id) {
+  return sheetsGet({ action: 'redeemPurchase', id })
+}
+
 // ── Admin ─────────────────────────────────────────────────────────────────────
 
 export async function adminGetAllMomStoreItems() {

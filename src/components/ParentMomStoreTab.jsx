@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminGetAllMomStoreItems, adminAddMomStoreItem, adminEditMomStoreItem, adminDeleteMomStoreItem } from '../hooks/useMomStore'
+import { adminGetAllMomStoreItems, adminAddMomStoreItem, adminEditMomStoreItem, adminDeleteMomStoreItem, usePurchases, redeemPurchase } from '../hooks/useMomStore'
 import BuckBadge from './BuckBadge'
+import { CONFIG } from '../config/config'
 
 function emptyItem() {
   return { id: '', label: '', icon: '', cost: 5, requiresApproval: false, active: true }
@@ -136,6 +137,55 @@ function StoreForm({ item, onSave, onCancel, saving }) {
   )
 }
 
+// ── Pending Redemptions ───────────────────────────────────────────────────────
+
+function PendingRedemptions() {
+  const { purchases, loading, reload } = usePurchases()
+  const [redeeming, setRedeeming] = useState(null)
+
+  async function handleRedeem(id) {
+    setRedeeming(id)
+    await redeemPurchase(id)
+    setRedeeming(null)
+    reload()
+  }
+
+  if (loading) return <p className="parent-soon-msg">Loading…</p>
+  if (purchases.length === 0) return <p className="parent-soon-msg">No unredeemed purchases.</p>
+
+  // Group by child in config order
+  const byChild = {}
+  CONFIG.children.forEach(c => { byChild[c.name] = [] })
+  purchases.forEach(p => {
+    if (!byChild[p.child]) byChild[p.child] = []
+    byChild[p.child].push(p)
+  })
+
+  return (
+    <div className="redemptions-list">
+      {Object.entries(byChild).filter(([, ps]) => ps.length > 0).map(([childName, ps]) => (
+        <div key={childName} className="redemptions-child">
+          <p className="redemptions-child-name">{childName}</p>
+          {ps.map(p => (
+            <div key={p.id} className="redemptions-row">
+              <span className="redemptions-icon">{p.itemIcon || '🎁'}</span>
+              <span className="redemptions-label">{p.itemLabel}</span>
+              <BuckBadge amount={p.cost} />
+              <button
+                className="redemptions-btn"
+                onClick={() => handleRedeem(p.id)}
+                disabled={redeeming === p.id}
+              >
+                {redeeming === p.id ? '…' : 'Redeem'}
+              </button>
+            </div>
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Tab root ──────────────────────────────────────────────────────────────────
 
 export default function ParentMomStoreTab() {
@@ -144,6 +194,7 @@ export default function ParentMomStoreTab() {
   const [form,          setForm]          = useState(null)
   const [saving,        setSaving]        = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [section,       setSection]       = useState('store')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -185,32 +236,34 @@ export default function ParentMomStoreTab() {
 
   return (
     <div className="parent-chores-tab">
-      <button className="parent-add-chore-btn" onClick={() => setForm(emptyItem())}>
-        + Add Item
-      </button>
+      <div className="store-section-toggle">
+        <button
+          className={section === 'store' ? 'active' : ''}
+          onClick={() => setSection('store')}
+        >
+          Store Items
+        </button>
+        <button
+          className={section === 'redeem' ? 'active' : ''}
+          onClick={() => setSection('redeem')}
+        >
+          Redeem
+        </button>
+      </div>
 
-      {loading && <p className="parent-soon-msg">Loading store…</p>}
-
-      {!loading && items.length === 0 && (
-        <p className="parent-soon-msg">No items yet. Add one above.</p>
-      )}
-
-      {!loading && active.map(item => (
-        <StoreRow
-          key={item.id}
-          item={item}
-          confirmDelete={deleteConfirm === item.id}
-          onEdit={() => setForm({ ...item })}
-          onDeleteRequest={() => setDeleteConfirm(item.id)}
-          onConfirmDelete={() => handleDelete(item.id)}
-          onCancelDelete={() => setDeleteConfirm(null)}
-        />
-      ))}
-
-      {!loading && inactive.length > 0 && (
+      {section === 'store' && (
         <>
-          <p className="chore-inactive-heading">Inactive</p>
-          {inactive.map(item => (
+          <button className="parent-add-chore-btn" onClick={() => setForm(emptyItem())}>
+            + Add Item
+          </button>
+
+          {loading && <p className="parent-soon-msg">Loading store…</p>}
+
+          {!loading && items.length === 0 && (
+            <p className="parent-soon-msg">No items yet. Add one above.</p>
+          )}
+
+          {!loading && active.map(item => (
             <StoreRow
               key={item.id}
               item={item}
@@ -221,8 +274,27 @@ export default function ParentMomStoreTab() {
               onCancelDelete={() => setDeleteConfirm(null)}
             />
           ))}
+
+          {!loading && inactive.length > 0 && (
+            <>
+              <p className="chore-inactive-heading">Inactive</p>
+              {inactive.map(item => (
+                <StoreRow
+                  key={item.id}
+                  item={item}
+                  confirmDelete={deleteConfirm === item.id}
+                  onEdit={() => setForm({ ...item })}
+                  onDeleteRequest={() => setDeleteConfirm(item.id)}
+                  onConfirmDelete={() => handleDelete(item.id)}
+                  onCancelDelete={() => setDeleteConfirm(null)}
+                />
+              ))}
+            </>
+          )}
         </>
       )}
+
+      {section === 'redeem' && <PendingRedemptions />}
     </div>
   )
 }

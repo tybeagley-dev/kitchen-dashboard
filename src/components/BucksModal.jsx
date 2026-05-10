@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useChorePoints } from '../hooks/useChores'
-import { useMomStore, buyMomStoreItem } from '../hooks/useMomStore'
+import { useMomStore, usePurchases, buyMomStoreItem } from '../hooks/useMomStore'
 import BuckBadge from './BuckBadge'
 
 const PHASE = { VIEW: 'view', STORE: 'store', CONFIRM: 'confirm' }
 
 export default function BucksModal({ child, onClose }) {
-  const { bucks, adjustBucks } = useChorePoints(child.name)
-  const { items, loading }     = useMomStore()
+  const { bucks, adjustBucks }         = useChorePoints(child.name)
+  const { items, loading }             = useMomStore()
+  const { purchases, loading: pwLoad } = usePurchases(child.name)
   const [phase,       setPhase]       = useState(PHASE.VIEW)
   const [selected,    setSelected]    = useState(null)
   const [buying,      setBuying]      = useState(false)
@@ -63,6 +64,20 @@ export default function BucksModal({ child, onClose }) {
             >
               Spend Beagley Bucks
             </button>
+
+            {!pwLoad && purchases.length > 0 && (
+              <div className="wallet-section">
+                <p className="wallet-heading">My Wallet</p>
+                {purchases.map(p => (
+                  <div key={p.id} className="wallet-row">
+                    <span className="wallet-icon">{p.itemIcon || '🎁'}</span>
+                    <span className="wallet-label">{p.itemLabel}</span>
+                    <span className="wallet-cost"><BuckBadge amount={p.cost} /></span>
+                  </div>
+                ))}
+                <p className="wallet-hint">Show this to a parent to use it!</p>
+              </div>
+            )}
           </div>
         )}
 

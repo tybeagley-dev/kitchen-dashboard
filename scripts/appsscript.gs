@@ -65,6 +65,7 @@ const TABS = {
   ANNOUNCEMENTS: 'Announcements',
   ROUTINE_DEFS:  'RoutineDefs',
   MOM_STORE:     'MomStore',
+  PURCHASES:     'Purchases',
 }
 
 function doGet(e) {
@@ -110,6 +111,8 @@ function doGet(e) {
     else if (action === 'editMomStoreItem')    result = editMomStoreItem(e.parameter)
     else if (action === 'deleteMomStoreItem')  result = deleteMomStoreItem(e.parameter.id)
     else if (action === 'buyMomStoreItem')     result = buyMomStoreItem(e.parameter.child, e.parameter.itemId)
+    else if (action === 'getPurchases')        result = getPurchases(e.parameter.child, e.parameter.includeRedeemed === 'true')
+    else if (action === 'redeemPurchase')      result = redeemPurchase(e.parameter.id)
     else result = { error: 'Unknown action: ' + action }
   } catch (err) {
     result = { error: err.message }
@@ -671,9 +674,47 @@ function buyMomStoreItem(child, itemId) {
   if (!item) return { success: false, error: 'Item not found: ' + itemId }
   const cost  = Number(item[idx('cost')]) || 0
   const label = item[idx('label')] || ''
+  const icon  = item[idx('icon')] || ''
   _addToBucks(child, -cost)
   getSheet(TABS.SPEND_HISTORY).appendRow([new Date(), child, cost, 'momstore'])
-  return { success: true, cost, label }
+  // Create a redeemable purchase record
+  const purchaseId = 'p' + Date.now()
+  const { sheet: ps, headers: ph } = sheetData(TABS.PURCHASES)
+  const pv = { id: purchaseId, timestamp: new Date(), child, itemId, itemLabel: label, itemIcon: icon, cost, redeemed: false, redeemedAt: '' }
+  ps.appendRow(ph.map(h => pv[h] !== undefined ? pv[h] : ''))
+  return { success: true, cost, label, purchaseId }
+}
+
+function getPurchases(child, includeRedeemed) {
+  const { rows, idx } = sheetData(TABS.PURCHASES)
+  return rows
+    .filter(r => {
+      if (r[idx('id')] === '') return false
+      if (child && String(r[idx('child')]) !== child) return false
+      if (!includeRedeemed && r[idx('redeemed')] === true) return false
+      return true
+    })
+    .map(r => ({
+      id:         String(r[idx('id')]),
+      timestamp:  r[idx('timestamp')] ? (r[idx('timestamp')] instanceof Date ? r[idx('timestamp')].toISOString() : String(r[idx('timestamp')])) : '',
+      child:      String(r[idx('child')] || ''),
+      itemId:     String(r[idx('itemId')] || ''),
+      itemLabel:  String(r[idx('itemLabel')] || ''),
+      itemIcon:   String(r[idx('itemIcon')] || ''),
+      cost:       Number(r[idx('cost')] || 0),
+      redeemed:   r[idx('redeemed')] === true,
+    }))
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
+}
+
+function redeemPurchase(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.PURCHASES)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(id))
+  if (rowIdx < 0) return { success: false, error: 'Purchase not found: ' + id }
+  sheet.getRange(rowIdx + 2, idx('redeemed') + 1).setValue(true)
+  sheet.getRange(rowIdx + 2, idx('redeemedAt') + 1).setValue(new Date())
+  return { success: true }
 }
 
 // ── Calendars (CalDAV/iCal) ───────────────────────────────────────────────────
