@@ -956,23 +956,6 @@ button {
 }
 .btn-start-timer:active { filter: brightness(0.9); }
 
-.btn-trade-bucks {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 10px 20px;
-  border-radius: 50px;
-  background: transparent;
-  border: 1.5px solid var(--border);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-.btn-trade-bucks:hover { border-color: var(--accent-warm); color: var(--text-primary); }
-
 .trade-rate {
   font-size: 12px;
   color: var(--text-secondary);

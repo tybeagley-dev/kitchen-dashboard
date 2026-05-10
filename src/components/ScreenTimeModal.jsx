@@ -6,9 +6,10 @@ import BuckBadge from './BuckBadge'
 import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
 
-const PHASE           = { VIEW: 'view', PIN: 'pin', TRADE: 'trade' }
+const PHASE           = { VIEW: 'view', PIN: 'pin', ADJUST: 'adjust' }
 const MINS_PER_BUCK   = 10
 const DAILY_MAX_BUCKS = 30
+const MAX_PER_TRADE   = 3
 
 function sheetsGet(params) {
   if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
@@ -21,9 +22,9 @@ function sheetsGet(params) {
 export default function ScreenTimeModal({ child, onClose }) {
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, adjustBucks }  = useChorePoints(child.name)
-  const [phase,       setPhase]       = useState(PHASE.VIEW)
-  const [amount,      setAmount]      = useState(1)
-  const [tradedToday, setTradedToday] = useState(0)
+  const [phase,        setPhase]        = useState(PHASE.VIEW)
+  const [amount,       setAmount]       = useState(1)
+  const [tradedToday,  setTradedToday]  = useState(0)
   const [tradeLoading, setTradeLoading] = useState(true)
 
   useEffect(() => {
@@ -41,20 +42,23 @@ export default function ScreenTimeModal({ child, onClose }) {
     loadTradeCount()
   }, [child.name])
 
-  async function handleTrade() {
-    const today = getTodayKey(new Date())
-    const result = await sheetsGet({ action: 'tradeBucksForTime', child: child.name, amount, date: today })
+  async function handleAdjust() {
+    const result = await sheetsGet({ action: 'tradeBucksForTime', child: child.name, amount, date: getTodayKey(new Date()) })
     if (!result?.success) return
-    // Mirror the Sheets writes in local state so UI updates immediately
     adjustBucks(-result.bucksTrade)
     addMinutes(result.minutesAdded)
     onClose()
   }
 
-  const remaining   = Math.max(0, DAILY_MAX_BUCKS - tradedToday)
-  const maxTrade    = Math.min(bucks, remaining)
+  function handleStart() {
+    startChildTimer(child.name)
+    onClose()
+  }
+
+  const remaining  = Math.max(0, DAILY_MAX_BUCKS - tradedToday)
+  const maxTrade   = Math.min(bucks, remaining, MAX_PER_TRADE)
+  const canAdjust  = maxTrade > 0 && !tradeLoading
   const minutesGained = amount * MINS_PER_BUCK
-  const canTrade    = bucks > 0 && remaining > 0 && !tradeLoading
 
   return (
     <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -78,22 +82,25 @@ export default function ScreenTimeModal({ child, onClose }) {
               <span className="st-balance-unit">min banked</span>
             </div>
 
-            {balance > 0 ? (
+            {balance > 0 && (
               <button className="btn-start-timer st-start" onClick={handleStart}>
                 Start Timer
               </button>
-            ) : (
+            )}
+
+            {!balance && (
               <p className="st-empty">No screen time banked yet.</p>
             )}
 
-            {canTrade && (
+            {canAdjust && (
               <button
-                className="btn-trade-bucks"
-                onClick={() => { setAmount(Math.min(1, maxTrade)); setPhase(PHASE.PIN) }}
+                className="btn-spend"
+                onClick={() => { setAmount(1); setPhase(PHASE.PIN) }}
               >
-                <BuckBadge amount={bucks} /> Trade Bucks for Time
+                Adjust Screen Time
               </button>
             )}
+
             {!tradeLoading && bucks > 0 && remaining === 0 && (
               <p className="trade-limit-msg">Daily trade limit reached ({DAILY_MAX_BUCKS} bucks)</p>
             )}
@@ -103,22 +110,21 @@ export default function ScreenTimeModal({ child, onClose }) {
         {phase === PHASE.PIN && (
           <PinModal
             prompt="Adult PIN required"
-            onSuccess={() => setPhase(PHASE.TRADE)}
+            onSuccess={() => setPhase(PHASE.ADJUST)}
             onCancel={() => setPhase(PHASE.VIEW)}
           />
         )}
 
-        {phase === PHASE.TRADE && (
+        {phase === PHASE.ADJUST && (
           <div className="bucks-spend-phase">
-            <p className="spend-prompt">Trade Bucks for Screen Time</p>
-            <p className="trade-rate">{MINS_PER_BUCK} min per buck · {remaining} of {DAILY_MAX_BUCKS} remaining today</p>
+            <p className="spend-prompt">Adjust Screen Time</p>
             <div className="spend-stepper">
               <button
                 className="stepper-btn"
                 onClick={() => setAmount(a => Math.max(1, a - 1))}
                 disabled={amount <= 1}
               >−</button>
-              <span className="stepper-value">
+              <span className="stepper-value adjust-value adding">
                 <BuckBadge amount={amount} />
               </span>
               <button
@@ -128,14 +134,14 @@ export default function ScreenTimeModal({ child, onClose }) {
               >+</button>
             </div>
             <p className="spend-remaining">
-              {amount} buck{amount !== 1 ? 's' : ''} → <strong>{minutesGained} min</strong>
+              {amount} buck{amount !== 1 ? 's' : ''} → <strong>+{minutesGained} min</strong> screen time
             </p>
             <p className="trade-balance-after">
               Bucks after: <BuckBadge amount={Math.max(0, bucks - amount)} />
             </p>
             <div className="spend-actions">
-              <button className="btn-confirm-spend btn-confirm-add" onClick={handleTrade}>
-                ✓ Trade {amount} Buck{amount !== 1 ? 's' : ''}
+              <button className="btn-confirm-spend btn-confirm-add" onClick={handleAdjust}>
+                ✓ Add {minutesGained} Minutes
               </button>
               <button className="btn-cancel-spend" onClick={() => setPhase(PHASE.VIEW)}>Cancel</button>
             </div>
@@ -144,9 +150,4 @@ export default function ScreenTimeModal({ child, onClose }) {
       </div>
     </div>
   )
-
-  function handleStart() {
-    startChildTimer(child.name)
-    onClose()
-  }
 }
