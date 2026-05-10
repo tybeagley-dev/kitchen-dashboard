@@ -1,16 +1,18 @@
-import { CONFIG } from '../config/config'
+import { useAnnouncements } from '../hooks/useAnnouncements'
 
 export default function Announcements() {
-  if (!CONFIG.announcements?.length) return null
+  const { announcements } = useAnnouncements()
+
+  if (!announcements.length) return null
 
   return (
     <section className="card announcements-card">
       <h2 className="section-label">Family Notes</h2>
       <ul className="announcement-list">
-        {CONFIG.announcements.map((note, i) => (
-          <li key={i} className="announcement-item">
+        {announcements.map(a => (
+          <li key={a.id} className="announcement-item">
             <span className="announcement-dot">›</span>
-            {note}
+            <span className="announcement-text">{a.text}</span>
           </li>
         ))}
       </ul>

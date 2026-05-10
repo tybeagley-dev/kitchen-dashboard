@@ -27,26 +27,26 @@ export function useChores() {
   const [chores, setChores] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    async function load() {
-      if (!CONFIG.appsScriptUrl) {
-        setChores(CONFIG.demoChores)
-        setLoading(false)
-        return
-      }
-      try {
-        const data = await sheetsGet({ action: 'getChores' })
-        setChores(data ?? CONFIG.demoChores)
-      } catch {
-        setChores(CONFIG.demoChores)
-      } finally {
-        setLoading(false)
-      }
+  const load = useCallback(async () => {
+    setLoading(true)
+    if (!CONFIG.appsScriptUrl) {
+      setChores(CONFIG.demoChores)
+      setLoading(false)
+      return
     }
-    load()
+    try {
+      const data = await sheetsGet({ action: 'getChores' })
+      setChores(data ?? CONFIG.demoChores)
+    } catch {
+      setChores(CONFIG.demoChores)
+    } finally {
+      setLoading(false)
+    }
   }, [])
 
-  return { chores, loading }
+  useEffect(() => { load() }, [load])
+
+  return { chores, loading, reload: load }
 }
 
 // ── Beagley Bucks ─────────────────────────────────────────────────────────────
@@ -128,4 +128,37 @@ export function useChoreCompletedToday(childName) {
   }, [childName])
 
   return done
+}
+
+// ── Chore admin (parent panel) ────────────────────────────────────────────
+
+export async function adminAddChore(data) {
+  return sheetsGet({
+    action:       'addChore',
+    label:        encodeURIComponent(data.label),
+    bucks:        data.bucks,
+    icon:         encodeURIComponent(data.icon),
+    days:         encodeURIComponent(data.days.join(',')),
+    frequency:    data.frequency,
+    required:     data.required ? 'true' : 'false',
+    instructions: encodeURIComponent(data.instructions.filter(Boolean).join('|')),
+  })
+}
+
+export async function adminEditChore(data) {
+  return sheetsGet({
+    action:       'editChore',
+    id:           data.id,
+    label:        encodeURIComponent(data.label),
+    bucks:        data.bucks,
+    icon:         encodeURIComponent(data.icon),
+    days:         encodeURIComponent(data.days.join(',')),
+    frequency:    data.frequency,
+    required:     data.required ? 'true' : 'false',
+    instructions: encodeURIComponent(data.instructions.filter(Boolean).join('|')),
+  })
+}
+
+export async function adminDeleteChore(id) {
+  return sheetsGet({ action: 'deleteChore', id })
 }

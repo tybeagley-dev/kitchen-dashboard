@@ -7,6 +7,7 @@ import Routines from './components/Routines'
 import ChoreModal from './components/ChoreModal'
 import ScreenTimeModal from './components/ScreenTimeModal'
 import BucksModal from './components/BucksModal'
+import ParentPanel from './components/ParentPanel'
 import { useClock } from './hooks/useClock'
 import { useWeather } from './hooks/useWeather'
 import { unlockAudio } from './utils/chime'
@@ -33,6 +34,7 @@ export default function App() {
       document.removeEventListener('click',      unlock)
     }
   }, [])
+  const [showParentPanel, setShowParentPanel] = useState(false)
   const [activeChoreChild, setActiveChoreChild] = useState(null)  // { child, chores }
 
   const [activeScreenChild, setActiveScreenChild] = useState(null)
@@ -40,7 +42,7 @@ export default function App() {
 
   return (
     <div className="dashboard">
-      <Header now={now} weather={weather} />
+      <Header now={now} weather={weather} onParentOpen={() => setShowParentPanel(true)} />
 
       <div className="dashboard-body">
         <div className="panel-left">
@@ -80,6 +82,10 @@ export default function App() {
           child={activeBucksChild}
           onClose={() => setActiveBucksChild(null)}
         />
+      )}
+
+      {showParentPanel && (
+        <ParentPanel onClose={() => setShowParentPanel(false)} />
       )}
     </div>
   )

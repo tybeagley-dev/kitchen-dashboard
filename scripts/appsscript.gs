@@ -62,6 +62,8 @@ const TABS = {
   MEALS:         'Meals',
   NOTES:         'Notes',
   ROUTINE_LOG:   'RoutineLog',
+  ANNOUNCEMENTS: 'Announcements',
+  ROUTINE_DEFS:  'RoutineDefs',
 }
 
 function doGet(e) {
@@ -92,6 +94,16 @@ function doGet(e) {
     else if (action === 'getNotes')          result = getNotes()
     else if (action === 'addNote')           result = addNote(e.parameter.id, decodeURIComponent(e.parameter.text || ''))
     else if (action === 'removeNote')        result = removeNote(e.parameter.id)
+    else if (action === 'addChore')          result = addChore(e.parameter)
+    else if (action === 'editChore')         result = editChore(e.parameter)
+    else if (action === 'deleteChore')         result = deleteChore(e.parameter.id)
+    else if (action === 'getAnnouncements')    result = getAnnouncements()
+    else if (action === 'addAnnouncement')     result = addAnnouncement(e.parameter.id, decodeURIComponent(e.parameter.text || ''))
+    else if (action === 'removeAnnouncement')  result = removeAnnouncement(e.parameter.id)
+    else if (action === 'getRoutineDefs')      result = getRoutineDefs()
+    else if (action === 'addRoutineDef')       result = addRoutineDef(e.parameter)
+    else if (action === 'editRoutineDef')      result = editRoutineDef(e.parameter)
+    else if (action === 'deleteRoutineDef')    result = deleteRoutineDef(e.parameter.id)
     else result = { error: 'Unknown action: ' + action }
   } catch (err) {
     result = { error: err.message }
@@ -131,6 +143,55 @@ function getChores() {
       required:     r[idx('required')] === true,
       instructions: r[idx('instructions')] ? String(r[idx('instructions')]).split('|').map(s => s.trim()).filter(Boolean) : [],
     }))
+}
+
+function addChore(params) {
+  const { sheet, headers } = sheetData(TABS.CHORES)
+  const id = 'c' + Date.now()
+  const values = {
+    id,
+    label:        decodeURIComponent(params.label || ''),
+    bucks:        Number(params.bucks) || 1,
+    icon:         decodeURIComponent(params.icon || ''),
+    active:       true,
+    days:         decodeURIComponent(params.days || ''),
+    frequency:    params.frequency || 'daily',
+    required:     params.required === 'true',
+    instructions: decodeURIComponent(params.instructions || ''),
+  }
+  const row = headers.map(h => values[h] !== undefined ? values[h] : '')
+  sheet.appendRow(row)
+  return { success: true, id }
+}
+
+function editChore(params) {
+  if (!params.id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.CHORES)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(params.id))
+  if (rowIdx < 0) return { success: false, error: 'Chore not found: ' + params.id }
+  const updates = {
+    label:        decodeURIComponent(params.label || ''),
+    bucks:        Number(params.bucks) || 1,
+    icon:         decodeURIComponent(params.icon || ''),
+    days:         decodeURIComponent(params.days || ''),
+    frequency:    params.frequency || 'daily',
+    required:     params.required === 'true',
+    instructions: decodeURIComponent(params.instructions || ''),
+  }
+  for (const [col, val] of Object.entries(updates)) {
+    const colIdx = idx(col)
+    if (colIdx >= 0) sheet.getRange(rowIdx + 2, colIdx + 1).setValue(val)
+  }
+  return { success: true }
+}
+
+function deleteChore(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.CHORES)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(id))
+  if (rowIdx < 0) return { success: false, error: 'Chore not found: ' + id }
+  sheet.getRange(rowIdx + 2, idx('active') + 1).setValue(false)
+  return { success: true }
 }
 
 // ── Beagley Bucks ─────────────────────────────────────────────────────────────
@@ -441,6 +502,98 @@ function removeNote(id) {
     }
   }
   return { success: false, error: 'Note not found: ' + id }
+}
+
+// ── Announcements ─────────────────────────────────────────────────────────────
+
+function getAnnouncements() {
+  const { rows, idx } = sheetData(TABS.ANNOUNCEMENTS)
+  return rows
+    .filter(r => r[idx('id')] !== '')
+    .map(r => ({ id: String(r[idx('id')]), text: r[idx('text')] || '' }))
+}
+
+function addAnnouncement(id, text) {
+  if (!id || !text) return { success: false, error: 'Invalid params' }
+  getSheet(TABS.ANNOUNCEMENTS).appendRow([id, text])
+  return { success: true }
+}
+
+function removeAnnouncement(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.ANNOUNCEMENTS)
+  for (let i = 0; i < rows.length; i++) {
+    if (String(rows[i][idx('id')]) === String(id)) {
+      sheet.deleteRow(i + 2)
+      return { success: true }
+    }
+  }
+  return { success: false, error: 'Announcement not found: ' + id }
+}
+
+// ── Routine Definitions ───────────────────────────────────────────────────────
+// RoutineDefs tab columns: id | child | label | icon | schedules | time | sortOrder
+
+function getRoutineDefs() {
+  const { rows, idx } = sheetData(TABS.ROUTINE_DEFS)
+  return rows
+    .filter(r => r[idx('id')] !== '')
+    .map(r => ({
+      id:        String(r[idx('id')]),
+      child:     r[idx('child')] || '',
+      label:     r[idx('label')] || '',
+      icon:      r[idx('icon')] || '',
+      schedules: r[idx('schedules')] ? String(r[idx('schedules')]).split(',').map(s => s.trim()).filter(Boolean) : [],
+      time:      r[idx('time')] || '',
+      sortOrder: Number(r[idx('sortOrder')] || 0),
+    }))
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+}
+
+function addRoutineDef(params) {
+  const { sheet, headers } = sheetData(TABS.ROUTINE_DEFS)
+  const id = 'r' + Date.now()
+  const values = {
+    id,
+    child:     decodeURIComponent(params.child || ''),
+    label:     decodeURIComponent(params.label || ''),
+    icon:      decodeURIComponent(params.icon || ''),
+    schedules: decodeURIComponent(params.schedules || ''),
+    time:      params.time || '',
+    sortOrder: Number(params.sortOrder || 0),
+  }
+  const row = headers.map(h => values[h] !== undefined ? values[h] : '')
+  sheet.appendRow(row)
+  return { success: true, id }
+}
+
+function editRoutineDef(params) {
+  if (!params.id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.ROUTINE_DEFS)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(params.id))
+  if (rowIdx < 0) return { success: false, error: 'Routine not found: ' + params.id }
+  const updates = {
+    child:     decodeURIComponent(params.child || ''),
+    label:     decodeURIComponent(params.label || ''),
+    icon:      decodeURIComponent(params.icon || ''),
+    schedules: decodeURIComponent(params.schedules || ''),
+    time:      params.time || '',
+    sortOrder: Number(params.sortOrder || 0),
+  }
+  for (const [col, val] of Object.entries(updates)) {
+    const colIdx = idx(col)
+    if (colIdx >= 0) sheet.getRange(rowIdx + 2, colIdx + 1).setValue(val)
+  }
+  return { success: true }
+}
+
+function deleteRoutineDef(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.ROUTINE_DEFS)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(id))
+  if (rowIdx < 0) return { success: false, error: 'Routine not found: ' + id }
+  sheet.deleteRow(rowIdx + 2)
+  return { success: true }
 }
 
 // ── Calendars (CalDAV/iCal) ───────────────────────────────────────────────────

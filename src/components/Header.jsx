@@ -10,7 +10,7 @@ import { useTidyTimer } from '../hooks/useTidyTimer'
 import { useToothbrushTimer } from '../hooks/useToothbrushTimer'
 import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 
-export default function Header({ now, weather }) {
+export default function Header({ now, weather, onParentOpen }) {
   const weatherInfo = weather ? getWeatherInfo(weather.code) : null
   const tidy  = useTidyTimer()
   const tooth = useToothbrushTimer()
@@ -75,6 +75,11 @@ export default function Header({ now, weather }) {
         {!tidy.active && (
           <TidyTimerButton onStart={(mins, castSession) => tidy.startTimer(mins, castSession)} />
         )}
+
+        {/* Parent panel trigger */}
+        <button className="parent-open-btn" onClick={onParentOpen} title="Parent Panel" aria-label="Parent Panel">
+          ⚙️
+        </button>
 
         {/* Weather pill */}
         <button

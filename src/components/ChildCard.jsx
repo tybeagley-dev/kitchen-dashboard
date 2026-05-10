@@ -12,6 +12,11 @@ function todayName() {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' })
 }
 
+function isChoreDay() {
+  const day = new Date().getDay() // 0 = Sunday
+  return day !== 0
+}
+
 export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks }) {
   const assignedChores         = useAssignedChores(child.name, chores)
   const { balance, addMinutes } = useScreenBalance(child.name)
@@ -20,7 +25,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
 
   // Auto-assign required chores when chore list loads
   useEffect(() => {
-    if (choresLoading || !chores?.length) return
+    if (choresLoading || !chores?.length || !isChoreDay()) return
     const today    = todayName()
     const required = chores.filter(c =>
       c.required &&
@@ -56,7 +61,8 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
   async function handleChoreComplete(chore) {
     completeAssignedChore(child.name, chore.id)
     await recordCompletion(child.name, chore.id, chore.bucks)
-    if (!chore.extra) addMinutes(chore.bucks * minutesPerBuck)
+    const isSaturday = new Date().getDay() === 6
+    if (!chore.extra && !isSaturday) addMinutes(chore.bucks * minutesPerBuck)
     markChoreToday(child.name)
     recordChoreCompletion(child.name, chore.id, chore.required)
   }
@@ -103,7 +109,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
           />
         ))}
 
-        {spinChores.length > 0 ? (
+        {isChoreDay() && (spinChores.length > 0 ? (
           <>
             {spinChores.map(chore => (
               <RoutineItem
@@ -133,7 +139,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
             <span className="spin-row-icon">🎡</span>
             <span className="spin-row-label">Spin a Chore</span>
           </button>
-        )}
+        ))}
       </div>
 
       <div className="child-card-actions">

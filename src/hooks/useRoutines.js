@@ -3,8 +3,8 @@ import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
 import { getCurrentScheduleMode } from '../utils/scheduleUtils'
 
-const STORAGE_KEY  = 'fam_dash_routines'
-const POLL_MS      = 60 * 1000
+const STORAGE_KEY = 'fam_dash_routines'
+const POLL_MS     = 60 * 1000
 
 function sheetsGet(params) {
   if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
@@ -14,8 +14,19 @@ function sheetsGet(params) {
   return fetch(url.toString()).then(r => r.json()).catch(() => null)
 }
 
+function configDefs() {
+  const all = []
+  CONFIG.children.forEach(child => {
+    (CONFIG.routines[child.name] ?? []).forEach(r => {
+      all.push({ ...r, child: child.name })
+    })
+  })
+  return all
+}
+
 export function useRoutines(now) {
-  const [completed, setCompleted] = useState({})
+  const [completed,   setCompleted]   = useState({})
+  const [routineDefs, setRoutineDefs] = useState(configDefs)
   const todayKey = getTodayKey(now)
 
   // Instant load from localStorage
@@ -30,7 +41,7 @@ export function useRoutines(now) {
     }
   }, [todayKey])
 
-  // Hydrate from Sheets on mount + poll for cross-device sync
+  // Hydrate completion state from Sheets on mount + poll
   useEffect(() => {
     if (!CONFIG.appsScriptUrl) return
 
@@ -46,6 +57,15 @@ export function useRoutines(now) {
     return () => clearInterval(id)
   }, [todayKey])
 
+  // Load routine definitions from Sheets on mount; fall back to config.js
+  useEffect(() => {
+    async function loadDefs() {
+      const data = await sheetsGet({ action: 'getRoutineDefs' })
+      if (Array.isArray(data) && data.length > 0) setRoutineDefs(data)
+    }
+    loadDefs()
+  }, [])
+
   const toggleRoutine = useCallback((childName, routineId) => {
     const key = `${childName}__${routineId}`
     setCompleted(prev => {
@@ -60,7 +80,8 @@ export function useRoutines(now) {
 
   const routinesByChild = {}
   CONFIG.children.forEach(child => {
-    routinesByChild[child.name] = (CONFIG.routines[child.name] ?? [])
+    const childDefs = routineDefs.filter(r => r.child === child.name)
+    routinesByChild[child.name] = childDefs
       .filter(r => {
         if (!r.schedules.includes(mode)) return false
         if (!r.time) return true
@@ -71,4 +92,51 @@ export function useRoutines(now) {
   })
 
   return { routinesByChild, toggleRoutine, mode }
+}
+
+// ── Parent panel admin ────────────────────────────────────────────────────────
+
+export function useRoutineDefs() {
+  const [defs,    setDefs]    = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const data = await sheetsGet({ action: 'getRoutineDefs' })
+    setDefs(Array.isArray(data) ? data : [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  return { defs, loading, reload: load }
+}
+
+export async function adminAddRoutineDef(data) {
+  return sheetsGet({
+    action:    'addRoutineDef',
+    child:     encodeURIComponent(data.child),
+    label:     encodeURIComponent(data.label),
+    icon:      encodeURIComponent(data.icon),
+    schedules: encodeURIComponent(data.schedules.join(',')),
+    time:      data.time || '',
+    sortOrder: data.sortOrder ?? 0,
+  })
+}
+
+export async function adminEditRoutineDef(data) {
+  return sheetsGet({
+    action:    'editRoutineDef',
+    id:        data.id,
+    child:     encodeURIComponent(data.child),
+    label:     encodeURIComponent(data.label),
+    icon:      encodeURIComponent(data.icon),
+    schedules: encodeURIComponent(data.schedules.join(',')),
+    time:      data.time || '',
+    sortOrder: data.sortOrder ?? 0,
+  })
+}
+
+export async function adminDeleteRoutineDef(id) {
+  return sheetsGet({ action: 'deleteRoutineDef', id })
 }
