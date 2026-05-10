@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { adminGetAllMomStoreItems, adminAddMomStoreItem, adminEditMomStoreItem, adminDeleteMomStoreItem, usePurchases, redeemPurchase } from '../hooks/useMomStore'
+import { adminGetAllMomStoreItems, adminAddMomStoreItem, adminEditMomStoreItem, adminDeleteMomStoreItem, usePurchases, redeemPurchase, buyMomStoreItem } from '../hooks/useMomStore'
 import BuckBadge from './BuckBadge'
 import { CONFIG } from '../config/config'
 
@@ -137,9 +137,78 @@ function StoreForm({ item, onSave, onCancel, saving }) {
   )
 }
 
+// ── Award an item ─────────────────────────────────────────────────────────────
+
+function AwardItem({ items, onAwarded }) {
+  const [child,    setChild]    = useState(CONFIG.children[0]?.name ?? '')
+  const [itemId,   setItemId]   = useState('')
+  const [awarding, setAwarding] = useState(false)
+  const [flash,    setFlash]    = useState(false)
+
+  const approvalItems = items.filter(i => i.active !== false && i.requiresApproval)
+  const selectedItem  = approvalItems.find(i => i.id === itemId)
+
+  async function handleAward() {
+    if (!child || !itemId) return
+    setAwarding(true)
+    await buyMomStoreItem(child, itemId)
+    setAwarding(false)
+    setItemId('')
+    setFlash(true)
+    setTimeout(() => setFlash(false), 2000)
+    onAwarded()
+  }
+
+  if (approvalItems.length === 0) return null
+
+  return (
+    <div className="award-form">
+      <p className="award-heading">Award a Purchase</p>
+
+      <div className="award-row">
+        <select
+          className="award-select"
+          value={child}
+          onChange={e => setChild(e.target.value)}
+        >
+          {CONFIG.children.map(c => (
+            <option key={c.name} value={c.name}>{c.name}</option>
+          ))}
+        </select>
+
+        <select
+          className="award-select"
+          value={itemId}
+          onChange={e => setItemId(e.target.value)}
+        >
+          <option value="">Pick an item…</option>
+          {approvalItems.map(i => (
+            <option key={i.id} value={i.id}>{i.icon} {i.label} ({i.cost} BB)</option>
+          ))}
+        </select>
+
+        <button
+          className="redemptions-btn"
+          onClick={handleAward}
+          disabled={awarding || !itemId}
+          style={flash ? { background: 'var(--accent-sage)' } : {}}
+        >
+          {flash ? 'Awarded!' : awarding ? '…' : 'Award'}
+        </button>
+      </div>
+
+      {selectedItem && (
+        <p className="award-hint">
+          Deducts {selectedItem.cost} BB from {child} and adds to their wallet.
+        </p>
+      )}
+    </div>
+  )
+}
+
 // ── Pending Redemptions ───────────────────────────────────────────────────────
 
-function PendingRedemptions() {
+function PendingRedemptions({ items }) {
   const { purchases, loading, reload } = usePurchases()
   const [redeeming, setRedeeming] = useState(null)
 
@@ -150,39 +219,46 @@ function PendingRedemptions() {
     reload()
   }
 
-  if (loading) return <p className="parent-soon-msg">Loading…</p>
-  if (purchases.length === 0) return <p className="parent-soon-msg">No unredeemed purchases.</p>
-
-  // Group by child in config order
-  const byChild = {}
-  CONFIG.children.forEach(c => { byChild[c.name] = [] })
-  purchases.forEach(p => {
-    if (!byChild[p.child]) byChild[p.child] = []
-    byChild[p.child].push(p)
-  })
-
   return (
-    <div className="redemptions-list">
-      {Object.entries(byChild).filter(([, ps]) => ps.length > 0).map(([childName, ps]) => (
-        <div key={childName} className="redemptions-child">
-          <p className="redemptions-child-name">{childName}</p>
-          {ps.map(p => (
-            <div key={p.id} className="redemptions-row">
-              <span className="redemptions-icon">{p.itemIcon || '🎁'}</span>
-              <span className="redemptions-label">{p.itemLabel}</span>
-              <BuckBadge amount={p.cost} />
-              <button
-                className="redemptions-btn"
-                onClick={() => handleRedeem(p.id)}
-                disabled={redeeming === p.id}
-              >
-                {redeeming === p.id ? '…' : 'Redeem'}
-              </button>
-            </div>
-          ))}
-        </div>
-      ))}
-    </div>
+    <>
+      <AwardItem items={items} onAwarded={reload} />
+
+      <p className="chore-inactive-heading" style={{ marginTop: 20 }}>Pending Redemptions</p>
+
+      {loading && <p className="parent-soon-msg">Loading…</p>}
+
+      {!loading && purchases.length === 0 && (
+        <p className="parent-soon-msg">No unredeemed purchases.</p>
+      )}
+
+      {!loading && (() => {
+        const byChild = {}
+        CONFIG.children.forEach(c => { byChild[c.name] = [] })
+        purchases.forEach(p => {
+          if (!byChild[p.child]) byChild[p.child] = []
+          byChild[p.child].push(p)
+        })
+        return Object.entries(byChild).filter(([, ps]) => ps.length > 0).map(([childName, ps]) => (
+          <div key={childName} className="redemptions-child">
+            <p className="redemptions-child-name">{childName}</p>
+            {ps.map(p => (
+              <div key={p.id} className="redemptions-row">
+                <span className="redemptions-icon">{p.itemIcon || '🎁'}</span>
+                <span className="redemptions-label">{p.itemLabel}</span>
+                <BuckBadge amount={p.cost} />
+                <button
+                  className="redemptions-btn"
+                  onClick={() => handleRedeem(p.id)}
+                  disabled={redeeming === p.id}
+                >
+                  {redeeming === p.id ? '…' : 'Redeem'}
+                </button>
+              </div>
+            ))}
+          </div>
+        ))
+      })()}
+    </>
   )
 }
 
@@ -294,7 +370,7 @@ export default function ParentMomStoreTab() {
         </>
       )}
 
-      {section === 'redeem' && <PendingRedemptions />}
+      {section === 'redeem' && <PendingRedemptions items={items} />}
     </div>
   )
 }

@@ -1791,6 +1791,49 @@ button {
 
 .redemptions-btn:disabled { opacity: 0.5; }
 
+/* ── Award form ──────────────────────────────────────────────────────────── */
+.award-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.award-heading {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary);
+}
+
+.award-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.award-select {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  color: var(--text-primary);
+  font-family: inherit;
+  min-width: 0;
+}
+
+.award-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* PIN phase */
 .bucks-pin-phase {
   display: flex;
