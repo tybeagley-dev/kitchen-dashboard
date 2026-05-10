@@ -29,6 +29,7 @@ export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
             choresLoading={loading}
             onToggle={toggleRoutine}
             onSpin={() => onSpinChore(child, chores)}
+            onExtraSpin={() => onSpinChore(child, chores, true)}
             onScreenTime={() => onScreenTime(child)}
             onBucks={() => onBucks(child)}
           />

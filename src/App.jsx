@@ -52,7 +52,7 @@ export default function App() {
         <div className="panel-right">
           <Routines
             now={now}
-            onSpinChore={(child, chores) => setActiveChoreChild({ child, chores })}
+            onSpinChore={(child, chores, isExtra) => setActiveChoreChild({ child, chores, isExtra: !!isExtra })}
             onScreenTime={setActiveScreenChild}
             onBucks={setActiveBucksChild}
           />
@@ -63,6 +63,7 @@ export default function App() {
         <ChoreModal
           child={activeChoreChild.child}
           chores={activeChoreChild.chores}
+          isExtra={activeChoreChild.isExtra}
           onClose={() => setActiveChoreChild(null)}
         />
       )}

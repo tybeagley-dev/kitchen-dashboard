@@ -62,11 +62,14 @@ function mergeSheetState(childName, todayEntries, chores) {
   saveAssignments(all)
 }
 
-export function getClaimedChoreIds(excludeChildName) {
+export function getClaimedChoreIds(childName) {
   const all = loadAssignments()
   const ids = new Set()
   Object.entries(all).forEach(([name, chores]) => {
-    if (name !== excludeChildName) chores.filter(c => !c.required).forEach(c => ids.add(c.id))
+    chores.filter(c => !c.required).forEach(c => {
+      // Exclude other kids' claimed chores + this child's already-completed chores
+      if (name !== childName || c.completed) ids.add(c.id)
+    })
   })
   return ids
 }

@@ -25,8 +25,9 @@
  *      Existing rows without a status value are treated as "completed".
  *
  *    SpendHistory (row 1 = headers):
- *      timestamp | child | amount
+ *      timestamp | child | amount | type
  *      (leave empty — script fills this in)
+ *      type is optional; "trade" marks a bucks-for-screen-time transaction
  *
  *    ScreenTime (row 1 = headers):
  *      child | balance
@@ -74,8 +75,10 @@ function doGet(e) {
     else if (action === 'acceptChore')       result = acceptChore(e.parameter.child, e.parameter.choreId, decodeURIComponent(e.parameter.choreLabel || ''), Number(e.parameter.bucks))
     else if (action === 'getChoreState')     result = getChoreState(e.parameter.date)
     else if (action === 'adjustBucks')       result = adjustBucks(e.parameter.child, Number(e.parameter.delta))
-    else if (action === 'getScreenTime')     result = getScreenTime()
-    else if (action === 'addScreenTime')     result = addScreenTime(e.parameter.child, Number(e.parameter.delta))
+    else if (action === 'getScreenTime')       result = getScreenTime()
+    else if (action === 'addScreenTime')       result = addScreenTime(e.parameter.child, Number(e.parameter.delta))
+    else if (action === 'tradeBucksForTime')   result = tradeBucksForTime(e.parameter.child, Number(e.parameter.amount), e.parameter.date)
+    else if (action === 'getDailyTradeCount')  result = getDailyTradeCount(e.parameter.child, e.parameter.date)
     else if (action === 'getGrocery')        result = getGrocery()
     else if (action === 'addGroceryItem')    result = addGroceryItem(e.parameter.id, e.parameter.item)
     else if (action === 'removeGroceryItem') result = removeGroceryItem(e.parameter.id)
@@ -265,6 +268,40 @@ function addScreenTime(child, delta) {
     }
   }
   return { success: false, error: 'Child not found: ' + child }
+}
+
+const TRADE_MINS_PER_BUCK = 10
+const TRADE_DAILY_MAX     = 30  // max bucks tradeable per child per day
+
+function getDailyTradeCount(child, date) {
+  if (!child || !date) return { traded: 0 }
+  const { rows, idx } = sheetData(TABS.SPEND_HISTORY)
+  const typeIdx = idx('type')
+  let traded = 0
+  for (const row of rows) {
+    const ts = row[idx('timestamp')]
+    if (!ts) continue
+    if (_routineDateKey(ts instanceof Date ? ts : new Date(ts)) !== date) continue
+    if (String(row[idx('child')]) !== child) continue
+    if (typeIdx >= 0 && String(row[typeIdx]) === 'trade') {
+      traded += Math.abs(Number(row[idx('amount')] || 0))
+    }
+  }
+  return { traded, remaining: Math.max(0, TRADE_DAILY_MAX - traded) }
+}
+
+function tradeBucksForTime(child, amount, date) {
+  if (!child || isNaN(amount) || amount <= 0) return { success: false, error: 'Invalid params' }
+
+  const { traded } = getDailyTradeCount(child, date)
+  const allowed = Math.min(amount, TRADE_DAILY_MAX - traded)
+  if (allowed <= 0) return { success: false, error: 'Daily trade limit reached' }
+
+  _addToBucks(child, -allowed)
+  const stResult = addScreenTime(child, allowed * TRADE_MINS_PER_BUCK)
+  getSheet(TABS.SPEND_HISTORY).appendRow([new Date(), child, -allowed, 'trade'])
+
+  return { success: true, bucksTrade: allowed, minutesAdded: allowed * TRADE_MINS_PER_BUCK, newBalance: stResult.balance }
 }
 
 // ── Grocery ───────────────────────────────────────────────────────────────────

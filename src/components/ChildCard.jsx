@@ -12,7 +12,7 @@ function todayName() {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' })
 }
 
-export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onScreenTime, onBucks }) {
+export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks }) {
   const assignedChores         = useAssignedChores(child.name, chores)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
@@ -56,10 +56,9 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
   async function handleChoreComplete(chore) {
     completeAssignedChore(child.name, chore.id)
     await recordCompletion(child.name, chore.id, chore.bucks)
-    addMinutes(chore.bucks * minutesPerBuck)
+    if (!chore.extra) addMinutes(chore.bucks * minutesPerBuck)
     markChoreToday(child.name)
     recordChoreCompletion(child.name, chore.id, chore.required)
-    onScreenTime(child)
   }
 
   function handleChoreTap(chore) {
@@ -105,13 +104,26 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
         ))}
 
         {spinChores.length > 0 ? (
-          spinChores.map(chore => (
-            <RoutineItem
-              key={chore.id}
-              routine={chore}
-              onToggle={() => handleChoreTap(chore)}
-            />
-          ))
+          <>
+            {spinChores.map(chore => (
+              <RoutineItem
+                key={chore.id}
+                routine={chore}
+                onToggle={() => handleChoreTap(chore)}
+              />
+            ))}
+            {spinChores.every(c => c.completed) && (
+              <button
+                className="spin-row-btn extra-spin-btn"
+                onClick={onExtraSpin}
+                style={{ '--child-color': child.color }}
+              >
+                <span className="spin-row-icon">⭐</span>
+                <span className="spin-row-label">Bonus Chore</span>
+                <span className="spin-row-sub">Earns Beagley Bucks</span>
+              </button>
+            )}
+          </>
         ) : (
           <button
             className="spin-row-btn"

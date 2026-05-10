@@ -11,7 +11,7 @@ function todayName() {
   return new Date().toLocaleDateString('en-US', { weekday: 'long' })
 }
 
-export default function ChoreModal({ child, chores = [], onClose }) {
+export default function ChoreModal({ child, chores = [], onClose, isExtra = false }) {
   const [phase,        setPhase]        = useState(PHASE.READY)
   const [mode,         setMode]         = useState(MODE.TWO_ONE)
   const [firstBundle,  setFirstBundle]  = useState([])
@@ -57,8 +57,9 @@ export default function ChoreModal({ child, chores = [], onClose }) {
   }
 
   function handleAccept(bundle) {
-    assignChores(child.name, bundle.map(c => ({ ...c, completed: false })))
-    acceptChoresToSheets(child, bundle)
+    const mapped = bundle.map(c => ({ ...c, completed: false, ...(isExtra && { extra: true }) }))
+    assignChores(child.name, mapped)
+    acceptChoresToSheets(child, mapped)
     onClose()
   }
 
@@ -88,7 +89,8 @@ export default function ChoreModal({ child, chores = [], onClose }) {
             {child.emoji}
           </div>
           <div>
-            <h2 className="modal-title">{child.name}'s Chore</h2>
+            <h2 className="modal-title">{isExtra ? 'Bonus Chore' : `${child.name}'s Chore`}</h2>
+            {isExtra && <p className="modal-subtitle">Earns Beagley Bucks only</p>}
           </div>
         </div>
 
