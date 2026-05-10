@@ -4,12 +4,14 @@ import ParentBucksTab from './ParentBucksTab'
 import ParentChoresTab from './ParentChoresTab'
 import ParentMealsTab    from './ParentMealsTab'
 import ParentRoutinesTab from './ParentRoutinesTab'
+import ParentMomStoreTab from './ParentMomStoreTab'
 
 const TABS = [
-  { id: 'bucks',    label: 'Bucks & Time', phase: null },
-  { id: 'chores',   label: 'Chores',       phase: null },
-  { id: 'routines', label: 'Routines',     phase: null },
-  { id: 'meals',    label: 'Meals',        phase: null },
+  { id: 'bucks',    label: 'Bucks & Time' },
+  { id: 'chores',   label: 'Chores'       },
+  { id: 'routines', label: 'Routines'     },
+  { id: 'meals',    label: 'Meals'        },
+  { id: 'store',    label: 'Mom Store'    },
 ]
 
 export default function ParentPanel({ onClose }) {
@@ -48,7 +50,6 @@ export default function ParentPanel({ onClose }) {
               onClick={() => setTab(t.id)}
             >
               {t.label}
-              {t.phase && <span className="parent-tab-soon">P{t.phase}</span>}
             </button>
           ))}
         </div>
@@ -58,6 +59,7 @@ export default function ParentPanel({ onClose }) {
           {tab === 'chores'   && <ParentChoresTab />}
           {tab === 'routines' && <ParentRoutinesTab />}
           {tab === 'meals'    && <ParentMealsTab />}
+          {tab === 'store'    && <ParentMomStoreTab />}
         </div>
       </div>
     </div>

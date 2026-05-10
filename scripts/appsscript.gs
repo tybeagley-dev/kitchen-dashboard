@@ -64,6 +64,7 @@ const TABS = {
   ROUTINE_LOG:   'RoutineLog',
   ANNOUNCEMENTS: 'Announcements',
   ROUTINE_DEFS:  'RoutineDefs',
+  MOM_STORE:     'MomStore',
 }
 
 function doGet(e) {
@@ -104,6 +105,11 @@ function doGet(e) {
     else if (action === 'addRoutineDef')       result = addRoutineDef(e.parameter)
     else if (action === 'editRoutineDef')      result = editRoutineDef(e.parameter)
     else if (action === 'deleteRoutineDef')    result = deleteRoutineDef(e.parameter.id)
+    else if (action === 'getMomStore')         result = getMomStore(e.parameter.includeInactive === 'true')
+    else if (action === 'addMomStoreItem')     result = addMomStoreItem(e.parameter)
+    else if (action === 'editMomStoreItem')    result = editMomStoreItem(e.parameter)
+    else if (action === 'deleteMomStoreItem')  result = deleteMomStoreItem(e.parameter.id)
+    else if (action === 'buyMomStoreItem')     result = buyMomStoreItem(e.parameter.child, e.parameter.itemId)
     else result = { error: 'Unknown action: ' + action }
   } catch (err) {
     result = { error: err.message }
@@ -596,6 +602,78 @@ function deleteRoutineDef(id) {
   if (rowIdx < 0) return { success: false, error: 'Routine not found: ' + id }
   sheet.deleteRow(rowIdx + 2)
   return { success: true }
+}
+
+// ── Mom Store ─────────────────────────────────────────────────────────────────
+
+function getMomStore(includeInactive) {
+  const { rows, idx } = sheetData(TABS.MOM_STORE)
+  return rows
+    .filter(r => r[idx('id')] !== '' && (includeInactive || r[idx('active')] === true))
+    .map(r => ({
+      id:               String(r[idx('id')]),
+      label:            r[idx('label')] || '',
+      icon:             r[idx('icon')] || '',
+      cost:             Number(r[idx('cost')]) || 0,
+      requiresApproval: r[idx('requiresApproval')] === true,
+      active:           r[idx('active')] === true,
+    }))
+}
+
+function addMomStoreItem(params) {
+  const { sheet, headers } = sheetData(TABS.MOM_STORE)
+  const id = 'ms' + Date.now()
+  const values = {
+    id,
+    label:            decodeURIComponent(params.label || ''),
+    icon:             decodeURIComponent(params.icon || ''),
+    cost:             Number(params.cost) || 1,
+    requiresApproval: params.requiresApproval === 'true',
+    active:           true,
+  }
+  const row = headers.map(h => values[h] !== undefined ? values[h] : '')
+  sheet.appendRow(row)
+  return { success: true, id }
+}
+
+function editMomStoreItem(params) {
+  if (!params.id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.MOM_STORE)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(params.id))
+  if (rowIdx < 0) return { success: false, error: 'Item not found: ' + params.id }
+  const updates = {
+    label:            decodeURIComponent(params.label || ''),
+    icon:             decodeURIComponent(params.icon || ''),
+    cost:             Number(params.cost) || 1,
+    requiresApproval: params.requiresApproval === 'true',
+  }
+  if (params.active !== undefined) updates.active = params.active === 'true'
+  for (const [col, val] of Object.entries(updates)) {
+    const colIdx = idx(col)
+    if (colIdx >= 0) sheet.getRange(rowIdx + 2, colIdx + 1).setValue(val)
+  }
+  return { success: true }
+}
+
+function deleteMomStoreItem(id) {
+  if (!id) return { success: false, error: 'Missing id' }
+  const { sheet, rows, idx } = sheetData(TABS.MOM_STORE)
+  const rowIdx = rows.findIndex(r => String(r[idx('id')]) === String(id))
+  if (rowIdx < 0) return { success: false, error: 'Item not found: ' + id }
+  sheet.getRange(rowIdx + 2, idx('active') + 1).setValue(false)
+  return { success: true }
+}
+
+function buyMomStoreItem(child, itemId) {
+  if (!child || !itemId) return { success: false, error: 'Missing params' }
+  const { rows, idx } = sheetData(TABS.MOM_STORE)
+  const item = rows.find(r => String(r[idx('id')]) === String(itemId))
+  if (!item) return { success: false, error: 'Item not found: ' + itemId }
+  const cost  = Number(item[idx('cost')]) || 0
+  const label = item[idx('label')] || ''
+  _addToBucks(child, -cost)
+  getSheet(TABS.SPEND_HISTORY).appendRow([new Date(), child, cost, 'momstore'])
+  return { success: true, cost, label }
 }
 
 // ── Calendars (CalDAV/iCal) ───────────────────────────────────────────────────

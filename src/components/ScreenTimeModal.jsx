@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useScreenBalance, startChildTimer } from '../hooks/useScreenTime'
 import { useChorePoints } from '../hooks/useChores'
-import PinModal from './PinModal'
 import BuckBadge from './BuckBadge'
 import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
 
-const PHASE           = { VIEW: 'view', PIN: 'pin', ADJUST: 'adjust' }
+const PHASE           = { VIEW: 'view', BUY: 'buy' }
 const MINS_PER_BUCK   = 10
 const DAILY_MAX_BUCKS = 30
 const MAX_PER_TRADE   = 3
@@ -42,7 +41,7 @@ export default function ScreenTimeModal({ child, onClose }) {
     loadTradeCount()
   }, [child.name])
 
-  async function handleAdjust() {
+  async function handleBuy() {
     const result = await sheetsGet({ action: 'tradeBucksForTime', child: child.name, amount, date: getTodayKey(new Date()) })
     if (!result?.success) return
     adjustBucks(-result.bucksTrade)
@@ -55,9 +54,9 @@ export default function ScreenTimeModal({ child, onClose }) {
     onClose()
   }
 
-  const remaining  = Math.max(0, DAILY_MAX_BUCKS - tradedToday)
-  const maxTrade   = Math.min(bucks, remaining, MAX_PER_TRADE)
-  const canAdjust  = maxTrade > 0 && !tradeLoading
+  const remaining     = Math.max(0, DAILY_MAX_BUCKS - tradedToday)
+  const maxTrade      = Math.min(bucks, remaining, MAX_PER_TRADE)
+  const canBuy        = maxTrade > 0 && !tradeLoading
   const minutesGained = amount * MINS_PER_BUCK
 
   return (
@@ -92,12 +91,12 @@ export default function ScreenTimeModal({ child, onClose }) {
               <p className="st-empty">No screen time banked yet.</p>
             )}
 
-            {canAdjust && (
+            {canBuy && (
               <button
                 className="btn-spend"
-                onClick={() => { setAmount(1); setPhase(PHASE.PIN) }}
+                onClick={() => { setAmount(1); setPhase(PHASE.BUY) }}
               >
-                Adjust Screen Time
+                Buy More Screen Time
               </button>
             )}
 
@@ -107,17 +106,9 @@ export default function ScreenTimeModal({ child, onClose }) {
           </>
         )}
 
-        {phase === PHASE.PIN && (
-          <PinModal
-            prompt="Adult PIN required"
-            onSuccess={() => setPhase(PHASE.ADJUST)}
-            onCancel={() => setPhase(PHASE.VIEW)}
-          />
-        )}
-
-        {phase === PHASE.ADJUST && (
+        {phase === PHASE.BUY && (
           <div className="bucks-spend-phase">
-            <p className="spend-prompt">Adjust Screen Time</p>
+            <p className="spend-prompt">Buy More Screen Time</p>
             <div className="spend-stepper">
               <button
                 className="stepper-btn"
@@ -140,7 +131,7 @@ export default function ScreenTimeModal({ child, onClose }) {
               Bucks after: <BuckBadge amount={Math.max(0, bucks - amount)} />
             </p>
             <div className="spend-actions">
-              <button className="btn-confirm-spend btn-confirm-add" onClick={handleAdjust}>
+              <button className="btn-confirm-spend btn-confirm-add" onClick={handleBuy}>
                 ✓ Add {minutesGained} Minutes
               </button>
               <button className="btn-cancel-spend" onClick={() => setPhase(PHASE.VIEW)}>Cancel</button>

@@ -1,14 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useChorePoints } from '../hooks/useChores'
+import { useMomStore, buyMomStoreItem } from '../hooks/useMomStore'
 import BuckBadge from './BuckBadge'
-import PinModal from './PinModal'
 
-const PHASE = { VIEW: 'view', PIN: 'pin', ADJUST: 'adjust' }
+const PHASE = { VIEW: 'view', STORE: 'store', CONFIRM: 'confirm' }
 
 export default function BucksModal({ child, onClose }) {
   const { bucks, adjustBucks } = useChorePoints(child.name)
-  const [phase, setPhase]   = useState(PHASE.VIEW)
-  const [amount, setAmount] = useState(1)
+  const { items, loading }     = useMomStore()
+  const [phase,       setPhase]       = useState(PHASE.VIEW)
+  const [selected,    setSelected]    = useState(null)
+  const [buying,      setBuying]      = useState(false)
+  const [askedItemId, setAskedItemId] = useState(null)
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
@@ -16,27 +19,23 @@ export default function BucksModal({ child, onClose }) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  function decrement() {
-    setAmount(a => {
-      const next = a - 1
-      return next === 0 ? -1 : Math.max(-bucks, next)
-    })
-  }
-
-  function increment() {
-    setAmount(a => {
-      const next = a + 1
-      return next === 0 ? 1 : next
-    })
-  }
-
-  function handleConfirm() {
-    adjustBucks(amount)
+  async function handleBuy() {
+    setBuying(true)
+    const result = await buyMomStoreItem(child.name, selected.id)
+    if (result?.success) adjustBucks(-selected.cost)
+    setBuying(false)
     onClose()
   }
 
-  const isAdding    = amount > 0
-  const resultBucks = Math.max(0, bucks + amount)
+  function handleItemTap(item) {
+    if (item.requiresApproval) {
+      setAskedItemId(item.id === askedItemId ? null : item.id)
+      return
+    }
+    if (bucks < item.cost) return
+    setSelected(item)
+    setPhase(PHASE.CONFIRM)
+  }
 
   return (
     <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -59,47 +58,72 @@ export default function BucksModal({ child, onClose }) {
             <p className="bucks-big-label">Beagley Bucks</p>
             <button
               className="btn-spend"
-              onClick={() => { setAmount(1); setPhase(PHASE.PIN) }}
+              onClick={() => setPhase(PHASE.STORE)}
+              disabled={items.length === 0 && !loading}
             >
-              Adjust Bucks
+              Spend Beagley Bucks
             </button>
           </div>
         )}
 
-        {phase === PHASE.PIN && (
-          <PinModal
-            prompt="Adult PIN required"
-            onSuccess={() => setPhase(PHASE.ADJUST)}
-            onCancel={() => setPhase(PHASE.VIEW)}
-          />
+        {phase === PHASE.STORE && (
+          <div className="store-phase">
+            <p className="store-heading">Mom Store</p>
+            {loading && <p className="parent-soon-msg">Loading…</p>}
+            {!loading && items.length === 0 && (
+              <p className="parent-soon-msg">No items in the store yet.</p>
+            )}
+            <div className="store-grid">
+              {items.map(item => {
+                const canAfford   = bucks >= item.cost
+                const isAsked     = askedItemId === item.id
+                return (
+                  <div
+                    key={item.id}
+                    className={`store-card ${!canAfford && !item.requiresApproval ? 'store-card--unaffordable' : ''} ${item.requiresApproval ? 'store-card--ask' : ''}`}
+                    onClick={() => handleItemTap(item)}
+                  >
+                    <span className="store-card-icon">{item.icon || '🎁'}</span>
+                    <span className="store-card-label">{item.label}</span>
+                    <BuckBadge amount={item.cost} />
+                    {item.requiresApproval ? (
+                      <span className="store-card-ask-badge">
+                        {isAsked ? '👋 Ask a parent!' : 'Ask a grown up'}
+                      </span>
+                    ) : !canAfford ? (
+                      <span className="store-card-need">
+                        Need {item.cost - bucks} more BB
+                      </span>
+                    ) : null}
+                  </div>
+                )
+              })}
+            </div>
+            <button className="btn-cancel-spend" onClick={() => setPhase(PHASE.VIEW)}>
+              Back
+            </button>
+          </div>
         )}
 
-        {phase === PHASE.ADJUST && (
+        {phase === PHASE.CONFIRM && selected && (
           <div className="bucks-spend-phase">
-            <p className="spend-prompt">Adjust Beagley Bucks</p>
-            <div className="spend-stepper">
-              <button
-                className="stepper-btn"
-                onClick={decrement}
-                disabled={amount <= -bucks && bucks > 0}
-              >−</button>
-              <span className={`stepper-value adjust-value ${isAdding ? 'adding' : 'deducting'}`}>
-                {amount > 0 ? `+${amount}` : amount}
-              </span>
-              <button className="stepper-btn" onClick={increment}>+</button>
+            <p className="spend-prompt">Spend Beagley Bucks?</p>
+            <div className="store-confirm-item">
+              <span className="store-confirm-icon">{selected.icon || '🎁'}</span>
+              <span className="store-confirm-label">{selected.label}</span>
             </div>
             <p className="spend-remaining">
-              Balance after: <BuckBadge amount={resultBucks} size="lg" />
+              Bucks after: <BuckBadge amount={Math.max(0, bucks - selected.cost)} size="lg" />
             </p>
             <div className="spend-actions">
               <button
-                className={`btn-confirm-spend ${isAdding ? 'btn-confirm-add' : ''}`}
-                onClick={handleConfirm}
-                disabled={amount === 0}
+                className="btn-confirm-spend"
+                onClick={handleBuy}
+                disabled={buying}
               >
-                {isAdding ? `✓ Add ${amount} BB` : `✓ Deduct ${Math.abs(amount)} BB`}
+                {buying ? 'Buying…' : `✓ Spend ${selected.cost} BB`}
               </button>
-              <button className="btn-cancel-spend" onClick={() => setPhase(PHASE.VIEW)}>Cancel</button>
+              <button className="btn-cancel-spend" onClick={() => setPhase(PHASE.STORE)}>Cancel</button>
             </div>
           </div>
         )}
