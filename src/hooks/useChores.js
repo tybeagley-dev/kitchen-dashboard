@@ -95,7 +95,19 @@ export function useChorePoints(childName) {
     sheetsGet({ action: 'adjustBucks', child: childName, delta })
   }, [childName])
 
-  return { bucks, recordCompletion, adjustBucks }
+  const reloadBucks = useCallback(async () => {
+    const data = await sheetsGet({ action: 'getBucks' })
+    if (!data) return
+    const row = data.find(d => d.child === childName)
+    if (row) {
+      setBucks(row.bucks)
+      const local = getLocalBucks()
+      local[childName] = row.bucks
+      saveLocalBucks(local)
+    }
+  }, [childName])
+
+  return { bucks, recordCompletion, adjustBucks, reloadBucks }
 }
 
 // ── Chore-as-routine tracking ─────────────────────────────────────────────────

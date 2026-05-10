@@ -6,7 +6,7 @@ import BuckBadge from './BuckBadge'
 const PHASE = { VIEW: 'view', STORE: 'store', CONFIRM: 'confirm' }
 
 export default function BucksModal({ child, onClose }) {
-  const { bucks, adjustBucks }         = useChorePoints(child.name)
+  const { bucks, reloadBucks }         = useChorePoints(child.name)
   const { items, loading }             = useMomStore()
   const { purchases, loading: pwLoad } = usePurchases(child.name)
   const [phase,       setPhase]       = useState(PHASE.VIEW)
@@ -23,7 +23,7 @@ export default function BucksModal({ child, onClose }) {
   async function handleBuy() {
     setBuying(true)
     const result = await buyMomStoreItem(child.name, selected.id)
-    if (result?.success) adjustBucks(-selected.cost)
+    if (result?.success) await reloadBucks()
     setBuying(false)
     onClose()
   }
