@@ -145,6 +145,12 @@ export async function adminAddChore(data) {
   })
 }
 
+export async function adminGetAllChores() {
+  if (!CONFIG.appsScriptUrl) return CONFIG.demoChores
+  const data = await sheetsGet({ action: 'getChores', includeInactive: 'true' })
+  return data ?? CONFIG.demoChores
+}
+
 export async function adminEditChore(data) {
   return sheetsGet({
     action:       'editChore',
@@ -152,6 +158,7 @@ export async function adminEditChore(data) {
     label:        encodeURIComponent(data.label),
     bucks:        data.bucks,
     icon:         encodeURIComponent(data.icon),
+    active:       data.active !== false ? 'true' : 'false',
     days:         encodeURIComponent(data.days.join(',')),
     frequency:    data.frequency,
     required:     data.required ? 'true' : 'false',

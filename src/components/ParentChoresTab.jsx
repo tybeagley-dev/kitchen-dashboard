@@ -1,12 +1,12 @@
-import { useState } from 'react'
-import { useChores, adminAddChore, adminEditChore, adminDeleteChore } from '../hooks/useChores'
+import { useState, useEffect, useCallback } from 'react'
+import { adminGetAllChores, adminAddChore, adminEditChore, adminDeleteChore } from '../hooks/useChores'
 import BuckBadge from './BuckBadge'
 
 const DAYS      = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const DAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat' }
 
 function emptyChore() {
-  return { id: '', label: '', icon: '', bucks: 1, days: [], frequency: 'daily', required: false, instructions: [] }
+  return { id: '', label: '', icon: '', bucks: 1, active: true, days: [], frequency: 'daily', required: false, instructions: [] }
 }
 
 // ── Chore row in list view ────────────────────────────────────────────────────
@@ -23,10 +23,13 @@ function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDele
   }
 
   return (
-    <div className="chore-admin-row">
+    <div className={`chore-admin-row ${chore.active === false ? 'chore-admin-row--inactive' : ''}`}>
       <span className="chore-admin-icon">{chore.icon || '•'}</span>
       <div className="chore-admin-info">
-        <span className="chore-admin-label">{chore.label}</span>
+        <span className="chore-admin-label">
+          {chore.label}
+          {chore.active === false && <span className="chore-inactive-badge"> inactive</span>}
+        </span>
         <span className="chore-admin-meta">
           {chore.days.length ? chore.days.map(d => DAY_SHORT[d] ?? d).join(' · ') : 'Any day'}
           {chore.required && ' · Required'}
@@ -46,6 +49,7 @@ function ChoreForm({ chore, onSave, onCancel, saving }) {
   const [label,        setLabel]        = useState(chore.label || '')
   const [icon,         setIcon]         = useState(chore.icon || '')
   const [bucks,        setBucks]        = useState(chore.bucks || 1)
+  const [active,       setActive]       = useState(chore.active !== false)
   const [days,         setDays]         = useState(chore.days || [])
   const [frequency,    setFrequency]    = useState(chore.frequency || 'daily')
   const [required,     setRequired]     = useState(chore.required || false)
@@ -67,7 +71,7 @@ function ChoreForm({ chore, onSave, onCancel, saving }) {
 
   function handleSave() {
     if (!label.trim()) return
-    onSave({ ...chore, label: label.trim(), icon, bucks, days, frequency, required, instructions })
+    onSave({ ...chore, label: label.trim(), icon, bucks, active, days, frequency, required, instructions })
   }
 
   return (
@@ -136,6 +140,18 @@ function ChoreForm({ chore, onSave, onCancel, saving }) {
         </div>
       </div>
 
+      {chore.id && (
+        <div className="chore-form-field">
+          <label className="chore-form-label">Status</label>
+          <button
+            className={`chore-form-toggle-single ${active ? 'active' : ''}`}
+            onClick={() => setActive(a => !a)}
+          >
+            {active ? 'Active — shows on wheel' : 'Inactive — hidden from wheel'}
+          </button>
+        </div>
+      )}
+
       <div className="chore-form-field">
         <label className="chore-form-label">Steps <span className="chore-form-hint">— optional instructions shown to kids</span></label>
         {instructions.map((step, i) => (
@@ -171,24 +187,34 @@ function ChoreForm({ chore, onSave, onCancel, saving }) {
 // ── Tab root ──────────────────────────────────────────────────────────────────
 
 export default function ParentChoresTab() {
-  const { chores, loading, reload } = useChores()
+  const [chores,        setChores]        = useState([])
+  const [loading,       setLoading]       = useState(true)
   const [form,          setForm]          = useState(null)
   const [saving,        setSaving]        = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    const data = await adminGetAllChores()
+    setChores(data)
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   async function handleSave(data) {
     setSaving(true)
     if (data.id) await adminEditChore(data)
     else         await adminAddChore(data)
     setSaving(false)
-    await reload()
+    await load()
     setForm(null)
   }
 
   async function handleDelete(id) {
     await adminDeleteChore(id)
     setDeleteConfirm(null)
-    await reload()
+    await load()
   }
 
   if (form !== null) {
@@ -202,6 +228,9 @@ export default function ParentChoresTab() {
     )
   }
 
+  const active   = chores.filter(c => c.active !== false)
+  const inactive = chores.filter(c => c.active === false)
+
   return (
     <div className="parent-chores-tab">
       <button className="parent-add-chore-btn" onClick={() => setForm(emptyChore())}>
@@ -214,7 +243,7 @@ export default function ParentChoresTab() {
         <p className="parent-soon-msg">No chores yet. Add one above.</p>
       )}
 
-      {!loading && chores.map(chore => (
+      {!loading && active.map(chore => (
         <ChoreRow
           key={chore.id}
           chore={chore}
@@ -225,6 +254,23 @@ export default function ParentChoresTab() {
           onCancelDelete={() => setDeleteConfirm(null)}
         />
       ))}
+
+      {!loading && inactive.length > 0 && (
+        <>
+          <p className="chore-inactive-heading">Inactive</p>
+          {inactive.map(chore => (
+            <ChoreRow
+              key={chore.id}
+              chore={chore}
+              confirmDelete={deleteConfirm === chore.id}
+              onEdit={() => setForm({ ...chore, instructions: chore.instructions ?? [] })}
+              onDeleteRequest={() => setDeleteConfirm(chore.id)}
+              onConfirmDelete={() => handleDelete(chore.id)}
+              onCancelDelete={() => setDeleteConfirm(null)}
+            />
+          ))}
+        </>
+      )}
     </div>
   )
 }

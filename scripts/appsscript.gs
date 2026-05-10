@@ -71,7 +71,7 @@ function doGet(e) {
   let result
 
   try {
-    if      (action === 'getChores')         result = getChores()
+    if      (action === 'getChores')         result = getChores(e.parameter.includeInactive === 'true')
     else if (action === 'getBucks')          result = getBucks()
     else if (action === 'completeChore')     result = completeChore(e.parameter.child, e.parameter.choreId)
     else if (action === 'acceptChore')       result = acceptChore(e.parameter.child, e.parameter.choreId, decodeURIComponent(e.parameter.choreLabel || ''), Number(e.parameter.bucks))
@@ -129,15 +129,16 @@ function sheetData(name) {
 
 // ── Chores ────────────────────────────────────────────────────────────────────
 
-function getChores() {
+function getChores(includeInactive) {
   const { rows, idx } = sheetData(TABS.CHORES)
   return rows
-    .filter(r => r[idx('active')] === true && r[idx('id')] !== '')
+    .filter(r => r[idx('id')] !== '' && (includeInactive || r[idx('active')] === true))
     .map(r => ({
       id:           String(r[idx('id')]),
       label:        r[idx('label')],
       bucks:        Number(r[idx('bucks')]),
       icon:         r[idx('icon')] || '',
+      active:       r[idx('active')] === true,
       days:         r[idx('days')] ? String(r[idx('days')]).split(',').map(d => d.trim()).filter(Boolean) : [],
       frequency:    r[idx('frequency')] || 'daily',
       required:     r[idx('required')] === true,
@@ -178,6 +179,7 @@ function editChore(params) {
     required:     params.required === 'true',
     instructions: decodeURIComponent(params.instructions || ''),
   }
+  if (params.active !== undefined) updates.active = params.active === 'true'
   for (const [col, val] of Object.entries(updates)) {
     const colIdx = idx(col)
     if (colIdx >= 0) sheet.getRange(rowIdx + 2, colIdx + 1).setValue(val)
