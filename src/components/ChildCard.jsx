@@ -25,7 +25,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
 
   // Auto-assign required chores when chore list loads
   useEffect(() => {
-    if (choresLoading || !chores?.length || !isChoreDay()) return
+    if (choresLoading || !chores?.length) return
     const today    = todayName()
     const required = chores.filter(c =>
       c.required &&
@@ -109,7 +109,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
           />
         ))}
 
-        {isChoreDay() && (spinChores.length > 0 ? (
+        {(spinChores.length > 0 ? (
           <>
             {spinChores.map(chore => (
               <RoutineItem

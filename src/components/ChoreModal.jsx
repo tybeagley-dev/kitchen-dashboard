@@ -28,6 +28,7 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
     const claimed     = getClaimedChoreIds(child.name)
     const today       = todayName()
     return chores.filter(c =>
+      c.active !== false &&
       c.bucks === targetBucks &&
       !c.required &&
       (c.days.length === 0 || c.days.includes(today)) &&
