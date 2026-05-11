@@ -48,8 +48,14 @@ export function useRoutines(now) {
     async function hydrate() {
       const data = await sheetsGet({ action: 'getRoutineState', date: todayKey })
       if (!data?.completed) return
-      setCompleted(data.completed)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: data.completed }))
+      setCompleted(prev => {
+        // Merge: Sheets is the base, but locally-true values take precedence so a
+        // recent toggle that hasn't landed in Sheets yet doesn't get wiped.
+        const merged = { ...data.completed }
+        Object.entries(prev).forEach(([k, v]) => { if (v) merged[k] = true })
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
+        return merged
+      })
     }
 
     hydrate()
@@ -68,12 +74,32 @@ export function useRoutines(now) {
 
   const toggleRoutine = useCallback((childName, routineId) => {
     const key = `${childName}__${routineId}`
-    setCompleted(prev => {
-      const next = { ...prev, [key]: !prev[key] }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: next }))
-      sheetsGet({ action: 'setRoutineItem', date: todayKey, key, value: next[key] })
-      return next
-    })
+
+    // Read current value directly from localStorage to avoid stale closure
+    const raw   = localStorage.getItem(STORAGE_KEY)
+    const local = raw ? JSON.parse(raw) : {}
+    const curr  = local.date === todayKey ? (local.completed ?? {}) : {}
+    const nextValue = !curr[key]
+
+    // Optimistic local update so UI responds instantly
+    const optimistic = { ...curr, [key]: nextValue }
+    setCompleted(optimistic)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: optimistic }))
+
+    // Write to Sheets, then immediately re-fetch to confirm — so other devices
+    // polling Sheets always see fully settled state, never a write-in-flight.
+    sheetsGet({ action: 'setRoutineItem', date: todayKey, key, value: nextValue })
+      .then(() => sheetsGet({ action: 'getRoutineState', date: todayKey }))
+      .then(data => {
+        if (!data?.completed) return
+        setCompleted(prev => {
+          const merged = { ...data.completed }
+          Object.entries(prev).forEach(([k, v]) => { if (v) merged[k] = true })
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
+          return merged
+        })
+      })
+      .catch(() => { /* local optimistic state stands on network failure */ })
   }, [todayKey])
 
   const mode = getCurrentScheduleMode(now, CONFIG)

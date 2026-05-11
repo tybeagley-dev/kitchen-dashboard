@@ -30,7 +30,6 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
     const required = chores.filter(c =>
       c.required &&
       (c.days.length === 0 || c.days.includes(today)) &&
-      !assignedChores.some(a => a.id === c.id) &&
       isChoreAvailableThisWeek(c, child.name)
     )
     if (required.length) {

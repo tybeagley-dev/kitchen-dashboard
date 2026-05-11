@@ -74,12 +74,14 @@ export function getClaimedChoreIds(childName) {
   return ids
 }
 
-// Replace only incomplete chores; keep completed ones (used for required auto-assign)
+// Merge new chores into existing assignments — never drops existing entries.
 export function assignChores(childName, newChores) {
-  const all      = loadAssignments()
-  const existing = all[childName] ?? []
-  const kept     = existing.filter(c => c.completed)
-  all[childName] = [...kept, ...newChores]
+  const all        = loadAssignments()
+  const existing   = all[childName] ?? []
+  const existingIds = new Set(existing.map(c => c.id))
+  const toAdd      = newChores.filter(c => !existingIds.has(c.id))
+  if (!toAdd.length) return
+  all[childName] = [...existing, ...toAdd]
   saveAssignments(all)
 }
 
