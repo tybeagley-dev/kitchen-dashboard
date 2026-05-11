@@ -2,10 +2,11 @@ import { useRef, useState, useEffect } from 'react'
 import RoutineItem from './RoutineItem'
 import Confetti from './Confetti'
 import ChoreInstructionsModal from './ChoreInstructionsModal'
-import { useScreenBalance } from '../hooks/useScreenTime'
+import { useScreenBalance, stopChildTimer } from '../hooks/useScreenTime'
 import { useChorePoints, markChoreToday } from '../hooks/useChores'
 import { useAssignedChores, assignChores, completeAssignedChore } from '../hooks/useAssignedChores'
 import { recordChoreCompletion, isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
+import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 import { CONFIG } from '../config/config'
 
 function todayName() {
@@ -17,7 +18,7 @@ function isChoreDay() {
   return day !== 0
 }
 
-export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks }) {
+export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks, timer }) {
   const assignedChores         = useAssignedChores(child.name, chores)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
@@ -54,6 +55,13 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
     prevAllDone.current = allDone
   }, [allDone])
 
+  // Chime when this child's timer expires
+  useEffect(() => {
+    if (timer?.expired) startChimeLoop()
+    else stopChimeLoop()
+    return stopChimeLoop
+  }, [timer?.expired])
+
   // Modal states
   const [instructionsChore, setInstructionsChore] = useState(null)
 
@@ -89,6 +97,30 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
             {allDone ? 'All done! ✓' : `${done} of ${total}`}
           </span>
         </div>
+        {timer && (
+          <div
+            className={`child-timer-pill ${timer.expired ? 'expired' : ''}`}
+            style={{ '--child-color': child.color }}
+          >
+            {timer.expired ? (
+              <span className="child-timer-label">Time's up!</span>
+            ) : (
+              <>
+                <span className="child-timer-dot" />
+                <span className="child-timer-label">
+                  {timer.minutes}:{String(timer.seconds).padStart(2, '0')}
+                </span>
+              </>
+            )}
+            <button
+              className="child-timer-stop"
+              onClick={() => { stopChimeLoop(); stopChildTimer(child.name) }}
+              aria-label="Stop timer"
+            >
+              ×
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="progress-track">

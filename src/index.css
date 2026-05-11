@@ -397,6 +397,52 @@ button {
   gap: 12px;
 }
 
+.child-timer-pill {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 50px;
+  border: 1.5px solid var(--child-color, var(--accent-sage));
+  color: var(--child-color, var(--accent-sage));
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.child-timer-pill.expired {
+  border-color: #c0392b;
+  color: #c0392b;
+  animation: pulse-red 1s ease infinite;
+}
+
+.child-timer-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--child-color, var(--accent-sage));
+  animation: pulse-dot 1.5s ease infinite;
+  flex-shrink: 0;
+}
+
+.child-timer-label {
+  font-variant-numeric: tabular-nums;
+}
+
+.child-timer-stop {
+  background: none;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0 0 0 2px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+.child-timer-stop:hover { opacity: 1; }
+
 .child-avatar {
   width: 52px;
   height: 52px;

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { formatDate, formatTime, getGreeting } from '../utils/dateUtils'
 import { getWeatherInfo } from '../utils/weatherCodes'
 import { CONFIG } from '../config/config'
-import TimerWidget from './TimerWidget'
 import TidyTimerButton from './TidyTimerButton'
 import TidyTimerPill from './TidyTimerPill'
 import WeatherModal from './WeatherModal'
@@ -37,9 +36,6 @@ export default function Header({ now, weather, onParentOpen }) {
       </div>
 
       <div className="header-right">
-        {/* Active per-child screen time timer */}
-        <TimerWidget />
-
         {/* Toothbrush timer */}
         {tooth.active ? (
           <div className={`tidy-pill tooth-pill ${tooth.expired ? 'expired' : ''}`}>
