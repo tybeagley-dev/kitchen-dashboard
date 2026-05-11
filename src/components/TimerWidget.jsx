@@ -1,63 +1,66 @@
 import { useState, useEffect } from 'react'
-import { useActiveChildTimer, stopChildTimer } from '../hooks/useScreenTime'
+import { useActiveChildTimers, stopChildTimer } from '../hooks/useScreenTime'
 import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 
 export default function TimerWidget() {
-  const timer = useActiveChildTimer()
-  const [open, setOpen] = useState(false)
+  const timers     = useActiveChildTimers()
+  const [openChild, setOpenChild] = useState(null)
+
+  const anyExpired = timers.some(t => t.expired)
 
   useEffect(() => {
-    if (timer?.expired) {
-      startChimeLoop()
-    } else {
-      stopChimeLoop()
-    }
+    if (anyExpired) startChimeLoop()
+    else stopChimeLoop()
     return stopChimeLoop
-  }, [timer?.expired])
+  }, [anyExpired])
 
-  if (!timer) return null
-
-  const timeStr = `${timer.minutes}:${String(timer.seconds).padStart(2, '0')}`
-
-  function handleDismiss() {
-    stopChimeLoop()
-    stopChildTimer()
-    setOpen(false)
-  }
+  if (timers.length === 0) return null
 
   return (
     <div className="timer-widget-wrap">
-      <button
-        className={`timer-pill ${timer.expired ? 'expired' : ''}`}
-        onClick={() => setOpen(o => !o)}
-      >
-        {timer.expired ? (
-          '🔴 Time\'s up!'
-        ) : (
-          <>
-            <span className="timer-pulse" />
-            {timer.child} · {timeStr}
-          </>
-        )}
-      </button>
+      {timers.map(timer => {
+        const timeStr = `${timer.minutes}:${String(timer.seconds).padStart(2, '0')}`
+        const isOpen  = openChild === timer.child
 
-      {open && (
-        <div className="timer-popover">
-          <p className="timer-popover-name">{timer.child}'s screen time</p>
-          <p className="timer-popover-time">{timer.expired ? 'All done!' : timeStr}</p>
-          <button
-            className="timer-stop-btn"
-            onClick={() => { stopChimeLoop(); stopChildTimer(); setOpen(false) }}
-          >
-            Stop Timer
-          </button>
-          {timer.expired && (
-            <button className="timer-dismiss-btn" onClick={handleDismiss}>
-              Dismiss
+        function handleStop() {
+          stopChimeLoop()
+          stopChildTimer(timer.child)
+          setOpenChild(null)
+        }
+
+        return (
+          <div key={timer.child} className="timer-pill-wrap">
+            <button
+              className={`timer-pill ${timer.expired ? 'expired' : ''}`}
+              onClick={() => setOpenChild(isOpen ? null : timer.child)}
+            >
+              {timer.expired ? (
+                '🔴 Time\'s up!'
+              ) : (
+                <>
+                  <span className="timer-pulse" />
+                  {timer.child} · {timeStr}
+                </>
+              )}
             </button>
-          )}
-        </div>
-      )}
+
+            {isOpen && (
+              <div className="timer-popover">
+                <p className="timer-popover-name">{timer.child}'s screen time</p>
+                <p className="timer-popover-time">{timer.expired ? 'All done!' : timeStr}</p>
+                <button className="timer-stop-btn" onClick={handleStop}>
+                  Stop Timer
+                </button>
+                {timer.expired && (
+                  <button className="timer-dismiss-btn" onClick={handleStop}>
+                    Dismiss
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
