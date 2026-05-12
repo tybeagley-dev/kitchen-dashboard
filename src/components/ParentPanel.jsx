@@ -5,24 +5,38 @@ import ParentChoresTab from './ParentChoresTab'
 import ParentMealsTab    from './ParentMealsTab'
 import ParentRoutinesTab from './ParentRoutinesTab'
 import ParentMomStoreTab from './ParentMomStoreTab'
+import ParentApprovalsTab from './ParentApprovalsTab'
+import { CONFIG } from '../config/config'
 
-const TABS = [
-  { id: 'bucks',    label: 'Bucks & Time' },
-  { id: 'chores',   label: 'Chores'       },
-  { id: 'routines', label: 'Routines'     },
-  { id: 'meals',    label: 'Meals'        },
-  { id: 'store',    label: 'Mom Store'    },
-]
+async function fetchPendingCount() {
+  if (!CONFIG.appsScriptUrl) return 0
+  try {
+    const url = new URL(CONFIG.appsScriptUrl)
+    url.searchParams.set('action', 'getPendingApprovals')
+    url.searchParams.set('_t', Date.now())
+    const data = await fetch(url.toString()).then(r => r.json())
+    return Array.isArray(data) ? data.length : 0
+  } catch { return 0 }
+}
 
 export default function ParentPanel({ onClose }) {
-  const [unlocked, setUnlocked] = useState(false)
-  const [tab, setTab]           = useState('bucks')
+  const [unlocked,      setUnlocked]      = useState(false)
+  const [tab,           setTab]           = useState('approvals')
+  const [pendingCount,  setPendingCount]  = useState(0)
 
   useEffect(() => {
     function onKey(e) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
+
+  // Poll pending count so the badge stays current while portal is open
+  useEffect(() => {
+    if (!unlocked) return
+    fetchPendingCount().then(setPendingCount)
+    const id = setInterval(() => fetchPendingCount().then(setPendingCount), 15000)
+    return () => clearInterval(id)
+  }, [unlocked])
 
   if (!unlocked) {
     return (
@@ -33,6 +47,15 @@ export default function ParentPanel({ onClose }) {
       />
     )
   }
+
+  const TABS = [
+    { id: 'approvals', label: 'Approvals', badge: pendingCount },
+    { id: 'bucks',     label: 'Bucks & Time' },
+    { id: 'chores',    label: 'Chores'       },
+    { id: 'routines',  label: 'Routines'     },
+    { id: 'meals',     label: 'Meals'        },
+    { id: 'store',     label: 'Mom Store'    },
+  ]
 
   return (
     <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
@@ -50,16 +73,18 @@ export default function ParentPanel({ onClose }) {
               onClick={() => setTab(t.id)}
             >
               {t.label}
+              {t.badge > 0 && <span className="tab-badge">{t.badge}</span>}
             </button>
           ))}
         </div>
 
         <div className="parent-panel-body">
-          {tab === 'bucks'    && <ParentBucksTab />}
-          {tab === 'chores'   && <ParentChoresTab />}
-          {tab === 'routines' && <ParentRoutinesTab />}
-          {tab === 'meals'    && <ParentMealsTab />}
-          {tab === 'store'    && <ParentMomStoreTab />}
+          {tab === 'approvals' && <ParentApprovalsTab />}
+          {tab === 'bucks'     && <ParentBucksTab />}
+          {tab === 'chores'    && <ParentChoresTab />}
+          {tab === 'routines'  && <ParentRoutinesTab />}
+          {tab === 'meals'     && <ParentMealsTab />}
+          {tab === 'store'     && <ParentMomStoreTab />}
         </div>
       </div>
     </div>

@@ -3,7 +3,7 @@ import { CONFIG } from '../config/config'
 
 const BALANCE_KEY    = 'fam_dash_screentime'
 const TIMER_KEY      = 'fam_dash_timer'
-const SHEETS_POLL_MS = 5 * 60 * 1000
+const SHEETS_POLL_MS = 20 * 1000
 
 function loadBalance() {
   try { return JSON.parse(localStorage.getItem(BALANCE_KEY) ?? '{}') } catch { return {} }
@@ -42,7 +42,7 @@ function sheetsAddScreenTime(child, delta) {
 // ── Balance ───────────────────────────────────────────────────────────────────
 
 export function useScreenBalance(childName) {
-  const [balance, setBalance] = useState(() => loadBalance()[childName] ?? 0)
+  const [balance, setBalance] = useState(0)
 
   // Hydrate from Sheets on mount, then re-poll every 5 minutes
   useEffect(() => {

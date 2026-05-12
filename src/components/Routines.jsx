@@ -6,7 +6,7 @@ import { SCHEDULE_LABELS } from '../utils/scheduleUtils'
 import { CONFIG } from '../config/config'
 
 export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
-  const { routinesByChild, toggleRoutine, mode } = useRoutines(now)
+  const { routinesByChild, toggleRoutine, mode, loading: routinesLoading } = useRoutines(now)
   const { chores, loading } = useChores()
   const activeTimers = useActiveChildTimers()
   const timeLabel = now.getHours() < 12 ? 'Morning' : 'Evening'
@@ -35,6 +35,7 @@ export default function Routines({ now, onSpinChore, onScreenTime, onBucks }) {
             onScreenTime={() => onScreenTime(child)}
             onBucks={() => onBucks(child)}
             timer={activeTimers.find(t => t.child === child.name) ?? null}
+            routinesLoading={routinesLoading}
           />
         ))}
       </div>

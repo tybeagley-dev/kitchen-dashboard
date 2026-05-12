@@ -112,7 +112,11 @@ function doGet(e) {
     else if (action === 'deleteMomStoreItem')  result = deleteMomStoreItem(e.parameter.id)
     else if (action === 'buyMomStoreItem')     result = buyMomStoreItem(e.parameter.child, e.parameter.itemId)
     else if (action === 'getPurchases')        result = getPurchases(e.parameter.child, e.parameter.includeRedeemed === 'true')
-    else if (action === 'redeemPurchase')      result = redeemPurchase(e.parameter.id)
+    else if (action === 'redeemPurchase')       result = redeemPurchase(e.parameter.id)
+    else if (action === 'requestApproval')      result = requestApproval(e.parameter)
+    else if (action === 'approveChore')         result = approveChore(e.parameter)
+    else if (action === 'rejectChore')          result = rejectChore(e.parameter)
+    else if (action === 'getPendingApprovals')  result = getPendingApprovals()
     else result = { error: 'Unknown action: ' + action }
   } catch (err) {
     result = { error: err.message }
@@ -239,6 +243,67 @@ function acceptChore(child, choreId, choreLabel, bucks) {
     .getSheetByName(TABS.HISTORY)
     .appendRow([new Date(), child, choreId, choreLabel, bucks, 'accepted'])
   return { success: true }
+}
+
+// ── Approval flow ─────────────────────────────────────────────────────────────
+
+function requestApproval(params) {
+  const child      = params.child
+  const choreId    = params.choreId
+  const choreLabel = decodeURIComponent(params.choreLabel || '')
+  const bucks      = Number(params.bucks) || 0
+  if (!child || !choreId) return { success: false, error: 'Missing params' }
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName(TABS.HISTORY)
+    .appendRow([new Date(), child, choreId, choreLabel, bucks, 'pending_approval'])
+  return { success: true }
+}
+
+function approveChore(params) {
+  const child   = params.child
+  const choreId = params.choreId
+  if (!child || !choreId) return { success: false, error: 'Missing params' }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TABS.HISTORY)
+  const { rows, idx } = sheetData(TABS.HISTORY)
+  const rowIdx = rows.findIndex(r =>
+    String(r[idx('child')]   || '') === String(child)   &&
+    String(r[idx('choreId')] || '') === String(choreId) &&
+    String(r[idx('status')]  || '') === 'pending_approval'
+  )
+  if (rowIdx < 0) return { success: false, error: 'No pending approval found' }
+  const bucksEarned = Number(rows[rowIdx][idx('bucksEarned')] || 0)
+  sheet.getRange(rowIdx + 2, idx('status') + 1).setValue('completed')
+  _addToBucks(child, bucksEarned)
+  return { success: true, bucksEarned }
+}
+
+function rejectChore(params) {
+  const child   = params.child
+  const choreId = params.choreId
+  if (!child || !choreId) return { success: false, error: 'Missing params' }
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TABS.HISTORY)
+  const { rows, idx } = sheetData(TABS.HISTORY)
+  const rowIdx = rows.findIndex(r =>
+    String(r[idx('child')]   || '') === String(child)   &&
+    String(r[idx('choreId')] || '') === String(choreId) &&
+    String(r[idx('status')]  || '') === 'pending_approval'
+  )
+  if (rowIdx < 0) return { success: false, error: 'No pending approval found' }
+  sheet.deleteRow(rowIdx + 2)
+  return { success: true }
+}
+
+function getPendingApprovals() {
+  const { rows, idx } = sheetData(TABS.HISTORY)
+  return rows
+    .filter(r => String(r[idx('status')] || '') === 'pending_approval')
+    .map(r => ({
+      child:      String(r[idx('child')]      || ''),
+      choreId:    String(r[idx('choreId')]    || ''),
+      choreLabel: String(r[idx('choreLabel')] || ''),
+      bucks:      Number(r[idx('bucksEarned')] || 0),
+      timestamp:  r[idx('timestamp')] ? new Date(r[idx('timestamp')]).toISOString() : null,
+    }))
 }
 
 // Returns today's chore assignment state (accepted/completed) plus this week's

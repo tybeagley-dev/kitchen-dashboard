@@ -4,7 +4,7 @@ import { getTodayKey } from '../utils/dateUtils'
 import { getCurrentScheduleMode } from '../utils/scheduleUtils'
 
 const STORAGE_KEY = 'fam_dash_routines'
-const POLL_MS     = 60 * 1000
+const POLL_MS     = 20 * 1000
 
 function sheetsGet(params) {
   if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
@@ -27,37 +27,23 @@ function configDefs() {
 export function useRoutines(now) {
   const [completed,   setCompleted]   = useState({})
   const [routineDefs, setRoutineDefs] = useState(configDefs)
+  const [loading,     setLoading]     = useState(true)
   const todayKey = getTodayKey(now)
 
-  // Instant load from localStorage
+  // Sheets is the source of truth — fetch on mount and poll every 20s.
+  // No localStorage trust on load; localStorage is only a within-session write cache.
   useEffect(() => {
-    const raw    = localStorage.getItem(STORAGE_KEY)
-    const stored = raw ? JSON.parse(raw) : {}
-    if (stored.date === todayKey) {
-      setCompleted(stored.completed ?? {})
-    } else {
-      setCompleted({})
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: {} }))
-    }
-  }, [todayKey])
-
-  // Hydrate completion state from Sheets on mount + poll
-  useEffect(() => {
-    if (!CONFIG.appsScriptUrl) return
+    if (!CONFIG.appsScriptUrl) { setLoading(false); return }
 
     async function hydrate() {
       const data = await sheetsGet({ action: 'getRoutineState', date: todayKey })
-      if (!data?.completed) return
-      setCompleted(prev => {
-        // Merge: Sheets is the base, but locally-true values take precedence so a
-        // recent toggle that hasn't landed in Sheets yet doesn't get wiped.
-        const merged = { ...data.completed }
-        Object.entries(prev).forEach(([k, v]) => { if (v) merged[k] = true })
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
-        return merged
-      })
+      const c = data?.completed ?? {}
+      setCompleted(c)
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: c }))
+      setLoading(false)
     }
 
+    setLoading(true)
     hydrate()
     const id = setInterval(hydrate, POLL_MS)
     return () => clearInterval(id)
@@ -75,31 +61,27 @@ export function useRoutines(now) {
   const toggleRoutine = useCallback((childName, routineId) => {
     const key = `${childName}__${routineId}`
 
-    // Read current value directly from localStorage to avoid stale closure
+    // Read current value from localStorage cache (avoids stale closure)
     const raw   = localStorage.getItem(STORAGE_KEY)
     const local = raw ? JSON.parse(raw) : {}
     const curr  = local.date === todayKey ? (local.completed ?? {}) : {}
     const nextValue = !curr[key]
 
-    // Optimistic local update so UI responds instantly
+    // Optimistic local update for instant UI response
     const optimistic = { ...curr, [key]: nextValue }
     setCompleted(optimistic)
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: optimistic }))
 
-    // Write to Sheets, then immediately re-fetch to confirm — so other devices
-    // polling Sheets always see fully settled state, never a write-in-flight.
+    // Write to Sheets, then re-fetch so Sheets is confirmed before other devices poll
     sheetsGet({ action: 'setRoutineItem', date: todayKey, key, value: nextValue })
       .then(() => sheetsGet({ action: 'getRoutineState', date: todayKey }))
       .then(data => {
-        if (!data?.completed) return
-        setCompleted(prev => {
-          const merged = { ...data.completed }
-          Object.entries(prev).forEach(([k, v]) => { if (v) merged[k] = true })
-          localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
-          return merged
-        })
+        if (!data) return
+        const c = data.completed ?? {}
+        setCompleted(c)
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: c }))
       })
-      .catch(() => { /* local optimistic state stands on network failure */ })
+      .catch(() => { /* optimistic state stands on network failure, poll will reconcile */ })
   }, [todayKey])
 
   const mode = getCurrentScheduleMode(now, CONFIG)
@@ -117,7 +99,7 @@ export function useRoutines(now) {
       .map(r => ({ ...r, completed: !!completed[`${child.name}__${r.id}`] }))
   })
 
-  return { routinesByChild, toggleRoutine, mode }
+  return { routinesByChild, toggleRoutine, mode, loading }
 }
 
 // ── Parent panel admin ────────────────────────────────────────────────────────

@@ -12,6 +12,17 @@ export default function RoutineItem({ routine, onToggle }) {
     prevCompleted.current = routine.completed
   }, [routine.completed])
 
+  if (routine.pending) {
+    return (
+      <div className="routine-item pending">
+        <span className="routine-check pending-check">⏳</span>
+        <span className="routine-icon">{routine.icon}</span>
+        <span className="routine-label">{routine.label}</span>
+        <span className="routine-pending-badge">Waiting for approval</span>
+      </div>
+    )
+  }
+
   return (
     <button
       className={`routine-item ${routine.completed ? 'completed' : ''}`}

@@ -4,39 +4,32 @@ import Confetti from './Confetti'
 import ChoreInstructionsModal from './ChoreInstructionsModal'
 import { useScreenBalance, stopChildTimer } from '../hooks/useScreenTime'
 import { useChorePoints, markChoreToday } from '../hooks/useChores'
-import { useAssignedChores, assignChores, completeAssignedChore } from '../hooks/useAssignedChores'
-import { recordChoreCompletion, isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
+import { useAssignedChores, markChoreAsPending, submitApprovalRequest, triggerChoreRefetch } from '../hooks/useAssignedChores'
+import { recordChoreCompletion } from '../hooks/useChoreFrequency'
 import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 import { CONFIG } from '../config/config'
 
-function todayName() {
-  return new Date().toLocaleDateString('en-US', { weekday: 'long' })
-}
-
 function isChoreDay() {
-  const day = new Date().getDay() // 0 = Sunday
-  return day !== 0
+  return new Date().getDay() !== 0
 }
 
-export default function ChildCard({ child, routines, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks, timer }) {
-  const assignedChores         = useAssignedChores(child.name, chores)
+function SkeletonList() {
+  return (
+    <div className="skeleton-list">
+      {[88, 72, 80].map((w, i) => (
+        <div key={i} className="skeleton-row" style={{ width: `${w}%` }} />
+      ))}
+    </div>
+  )
+}
+
+export default function ChildCard({ child, routines, routinesLoading, chores, choresLoading, onToggle, onSpin, onExtraSpin, onScreenTime, onBucks, timer }) {
+  const { chores: assignedChores, loading: assignedLoading } = useAssignedChores(child.name, chores)
   const { balance, addMinutes } = useScreenBalance(child.name)
   const { bucks, recordCompletion } = useChorePoints(child.name)
   const minutesPerBuck = Math.round((CONFIG.screenTime?.minutesPerChore ?? 30) / 2)
 
-  // Auto-assign required chores when chore list loads
-  useEffect(() => {
-    if (choresLoading || !chores?.length) return
-    const today    = todayName()
-    const required = chores.filter(c =>
-      c.required &&
-      (c.days.length === 0 || c.days.includes(today)) &&
-      isChoreAvailableThisWeek(c, child.name)
-    )
-    if (required.length) {
-      assignChores(child.name, required.map(c => ({ ...c, completed: false })))
-    }
-  }, [choresLoading]) // eslint-disable-line react-hooks/exhaustive-deps
+  const isLoading = routinesLoading || choresLoading || assignedLoading
 
   const requiredChores = assignedChores.filter(c => c.required)
   const spinChores     = assignedChores.filter(c => !c.required)
@@ -62,24 +55,22 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
     return stopChimeLoop
   }, [timer?.expired])
 
-  // Modal states
   const [instructionsChore, setInstructionsChore] = useState(null)
 
-  async function handleChoreComplete(chore) {
-    completeAssignedChore(child.name, chore.id)
-    await recordCompletion(child.name, chore.id, chore.bucks)
-    const isSaturday = new Date().getDay() === 6
-    if (!chore.extra && !isSaturday) addMinutes(chore.bucks * minutesPerBuck)
+  async function handleChoreRequest(chore) {
+    markChoreAsPending(child.name, chore.id)
     markChoreToday(child.name)
     recordChoreCompletion(child.name, chore.id, chore.required)
+    await submitApprovalRequest(child, chore.id, chore.label, chore.bucks)
+    triggerChoreRefetch()
   }
 
   function handleChoreTap(chore) {
-    if (chore.completed) return
+    if (chore.completed || chore.pending) return
     if (chore.instructions?.length) {
       setInstructionsChore(chore)
     } else {
-      handleChoreComplete(chore)
+      handleChoreRequest(chore)
     }
   }
 
@@ -94,7 +85,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
         <div className="child-meta">
           <h3 className="child-name">{child.name}</h3>
           <span className="child-progress-text">
-            {allDone ? 'All done! ✓' : `${done} of ${total}`}
+            {isLoading ? 'Syncing…' : allDone ? 'All done! ✓' : `${done} of ${total}`}
           </span>
         </div>
         {timer && (
@@ -128,49 +119,55 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
       </div>
 
       <div className="routine-list">
-        {routines.map(r => (
-          <RoutineItem key={r.id} routine={r} onToggle={() => onToggle(child.name, r.id)} />
-        ))}
-
-        {requiredChores.map(chore => (
-          <RoutineItem
-            key={chore.id}
-            routine={chore}
-            onToggle={() => handleChoreTap(chore)}
-          />
-        ))}
-
-        {(spinChores.length > 0 ? (
+        {isLoading ? (
+          <SkeletonList />
+        ) : (
           <>
-            {spinChores.map(chore => (
+            {routines.map(r => (
+              <RoutineItem key={r.id} routine={r} onToggle={() => onToggle(child.name, r.id)} />
+            ))}
+
+            {requiredChores.map(chore => (
               <RoutineItem
                 key={chore.id}
                 routine={chore}
                 onToggle={() => handleChoreTap(chore)}
               />
             ))}
-            {spinChores.every(c => c.completed) && (
+
+            {isChoreDay() && (spinChores.length > 0 ? (
+              <>
+                {spinChores.map(chore => (
+                  <RoutineItem
+                    key={chore.id}
+                    routine={chore}
+                    onToggle={() => handleChoreTap(chore)}
+                  />
+                ))}
+                {spinChores.every(c => c.completed) && (
+                  <button
+                    className="spin-row-btn extra-spin-btn"
+                    onClick={onExtraSpin}
+                    style={{ '--child-color': child.color }}
+                  >
+                    <span className="spin-row-icon">⭐</span>
+                    <span className="spin-row-label">Bonus Chore</span>
+                    <span className="spin-row-sub">Earns Beagley Bucks</span>
+                  </button>
+                )}
+              </>
+            ) : (
               <button
-                className="spin-row-btn extra-spin-btn"
-                onClick={onExtraSpin}
+                className="spin-row-btn"
+                onClick={onSpin}
                 style={{ '--child-color': child.color }}
               >
-                <span className="spin-row-icon">⭐</span>
-                <span className="spin-row-label">Bonus Chore</span>
-                <span className="spin-row-sub">Earns Beagley Bucks</span>
+                <span className="spin-row-icon">🎡</span>
+                <span className="spin-row-label">Spin a Chore</span>
               </button>
-            )}
+            ))}
           </>
-        ) : (
-          <button
-            className="spin-row-btn"
-            onClick={onSpin}
-            style={{ '--child-color': child.color }}
-          >
-            <span className="spin-row-icon">🎡</span>
-            <span className="spin-row-label">Spin a Chore</span>
-          </button>
-        ))}
+        )}
       </div>
 
       <div className="child-card-actions">
@@ -191,7 +188,7 @@ export default function ChildCard({ child, routines, chores, choresLoading, onTo
         <ChoreInstructionsModal
           chore={instructionsChore}
           onComplete={() => {
-            handleChoreComplete(instructionsChore)
+            handleChoreRequest(instructionsChore)
             setInstructionsChore(null)
           }}
           onClose={() => setInstructionsChore(null)}

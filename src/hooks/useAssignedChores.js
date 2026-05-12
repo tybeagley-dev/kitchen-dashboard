@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { getTodayKey } from '../utils/dateUtils'
 import { CONFIG } from '../config/config'
-import { hydrateWeeklyFromHistory } from './useChoreFrequency'
+import { hydrateWeeklyFromHistory, isChoreAvailableThisWeek } from './useChoreFrequency'
 
 const ASSIGNED_KEY = 'fam_dash_assigned_chores'
 const EVENT        = 'fam_assigned_update'
-const POLL_MS      = 60 * 1000
+const REFETCH_EVENT = 'fam_refetch_chores'
+const POLL_MS      = 20 * 1000
 
 function getToday() { return getTodayKey(new Date()) }
+function todayName() { return new Date().toLocaleDateString('en-US', { weekday: 'long' }) }
 
 async function sheetsGet(params) {
   if (!CONFIG.appsScriptUrl) return null
@@ -29,18 +31,23 @@ function saveAssignments(assignments) {
   window.dispatchEvent(new CustomEvent(EVENT))
 }
 
-// Reconcile local state with Sheets truth. Required chores stay local (auto-assigned
-// by ChildCard) but their completed flag is updated from Sheets. Spin chores are
-// rebuilt entirely from Sheets — if a parent deleted History rows, they disappear.
-function mergeSheetState(childName, todayEntries, chores) {
-  const all = loadAssignments()
-  const existing = all[childName] ?? []
+// Compute the full chore list for a child from Sheets data + chore definitions.
+// Required chores come from definitions (deterministic on any device).
+// Spin chores come from the Sheets History for today.
+function buildFromSheets(childName, todayEntries, chores) {
+  const today = todayName()
 
-  const required = existing
-    .filter(c => c.required)
+  const required = chores
+    .filter(c =>
+      c.required &&
+      c.active !== false &&
+      (c.days.length === 0 || c.days.includes(today)) &&
+      isChoreAvailableThisWeek(c, childName)
+    )
     .map(c => ({
       ...c,
       completed: todayEntries[c.id]?.status === 'completed' || false,
+      pending:   todayEntries[c.id]?.status === 'pending_approval' || false,
     }))
 
   const spin = Object.entries(todayEntries)
@@ -54,12 +61,12 @@ function mergeSheetState(childName, todayEntries, chores) {
         required:     def.required ?? false,
         instructions: def.instructions ?? [],
         completed:    entry.status === 'completed',
+        pending:      entry.status === 'pending_approval',
       }
     })
     .filter(c => !c.required)
 
-  all[childName] = [...required, ...spin]
-  saveAssignments(all)
+  return [...required, ...spin]
 }
 
 export function getClaimedChoreIds(childName) {
@@ -67,14 +74,13 @@ export function getClaimedChoreIds(childName) {
   const ids = new Set()
   Object.entries(all).forEach(([name, chores]) => {
     chores.filter(c => !c.required).forEach(c => {
-      // Exclude other kids' claimed chores + this child's already-completed chores
       if (name !== childName || c.completed) ids.add(c.id)
     })
   })
   return ids
 }
 
-// Merge new chores into existing assignments — never drops existing entries.
+// Optimistic local assignment for spin chores (still needed for instant UI response)
 export function assignChores(childName, newChores) {
   const all        = loadAssignments()
   const existing   = all[childName] ?? []
@@ -82,6 +88,15 @@ export function assignChores(childName, newChores) {
   const toAdd      = newChores.filter(c => !existingIds.has(c.id))
   if (!toAdd.length) return
   all[childName] = [...existing, ...toAdd]
+  saveAssignments(all)
+}
+
+export function markChoreAsPending(childName, choreId) {
+  const all = loadAssignments()
+  if (!all[childName]) return
+  all[childName] = all[childName].map(c =>
+    c.id === choreId ? { ...c, pending: true } : c
+  )
   saveAssignments(all)
 }
 
@@ -94,9 +109,9 @@ export function completeAssignedChore(childName, choreId) {
   saveAssignments(all)
 }
 
-// Fire-and-forget: write accepted chores to Sheets so other devices can see them
+// Write spin chore acceptances to Sheets — returns a Promise so callers can await.
 export function acceptChoresToSheets(child, chores) {
-  chores.forEach(c =>
+  return Promise.all(chores.map(c =>
     sheetsGet({
       action:     'acceptChore',
       child:      child.name,
@@ -104,34 +119,65 @@ export function acceptChoresToSheets(child, chores) {
       choreLabel: c.label,
       bucks:      c.bucks,
     })
-  )
+  ))
+}
+
+export function submitApprovalRequest(child, choreId, choreLabel, bucks) {
+  return sheetsGet({
+    action:     'requestApproval',
+    child:      child.name,
+    choreId,
+    choreLabel: encodeURIComponent(choreLabel),
+    bucks,
+  })
+}
+
+// Dispatch this after any Sheets write to trigger an immediate re-fetch on all hook instances.
+export function triggerChoreRefetch() {
+  window.dispatchEvent(new Event(REFETCH_EVENT))
 }
 
 export function useAssignedChores(childName, chores = []) {
-  const [assignedChores, setAssignedChores] = useState(() => loadAssignments()[childName] ?? [])
+  const [assignedChores, setAssignedChores] = useState([])
+  const [loading, setLoading]               = useState(true)
 
+  // Reflect optimistic local updates instantly
   useEffect(() => {
     function onUpdate() { setAssignedChores(loadAssignments()[childName] ?? []) }
     window.addEventListener(EVENT, onUpdate)
     return () => window.removeEventListener(EVENT, onUpdate)
   }, [childName])
 
-  // Hydrate from Sheets on mount + poll for cross-device sync.
-  // Waits for chores list to load before starting so mergeSheetState can join icons/instructions.
+  // Sheets is the source of truth — fetch on mount, poll every 20s, and on demand
   useEffect(() => {
-    if (!CONFIG.appsScriptUrl || !chores.length) return
+    if (!chores.length) return
+
+    if (!CONFIG.appsScriptUrl) {
+      setLoading(false)
+      return
+    }
 
     async function hydrate() {
       const data = await sheetsGet({ action: 'getChoreState', date: getToday() })
-      if (!data) return
+      if (!data) { setLoading(false); return }
       hydrateWeeklyFromHistory(data.weekCompleted ?? {}, chores)
-      mergeSheetState(childName, data.today?.[childName] ?? {}, chores)
+      const built = buildFromSheets(childName, data.today?.[childName] ?? {}, chores)
+      const all = loadAssignments()
+      all[childName] = built
+      saveAssignments(all)
+      setLoading(false)
     }
 
     hydrate()
-    const id = setInterval(hydrate, POLL_MS)
-    return () => clearInterval(id)
+    const poll    = setInterval(hydrate, POLL_MS)
+    const onForce = () => hydrate()
+    window.addEventListener(REFETCH_EVENT, onForce)
+
+    return () => {
+      clearInterval(poll)
+      window.removeEventListener(REFETCH_EVENT, onForce)
+    }
   }, [childName, chores.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  return assignedChores
+  return { chores: assignedChores, loading }
 }
