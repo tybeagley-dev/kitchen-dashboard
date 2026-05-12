@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
 import { getCurrentScheduleMode } from '../utils/scheduleUtils'
@@ -30,6 +30,17 @@ export function useRoutines(now) {
   const [loading,     setLoading]     = useState(true)
   const todayKey = getTodayKey(now)
 
+  // Tracks writes that are in-flight so re-fetches can't overwrite them.
+  // Keyed by routine key, value is the optimistic boolean.
+  const pendingWrites = useRef({})
+
+  function applySheets(sheetsCompleted) {
+    // Always overlay any still-in-flight optimistic writes on top of Sheets data.
+    const merged = { ...sheetsCompleted, ...pendingWrites.current }
+    setCompleted(merged)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
+  }
+
   // Sheets is the source of truth — fetch on mount and poll every 20s.
   // No localStorage trust on load; localStorage is only a within-session write cache.
   useEffect(() => {
@@ -37,9 +48,7 @@ export function useRoutines(now) {
 
     async function hydrate() {
       const data = await sheetsGet({ action: 'getRoutineState', date: todayKey })
-      const c = data?.completed ?? {}
-      setCompleted(c)
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: c }))
+      applySheets(data?.completed ?? {})
       setLoading(false)
     }
 
@@ -47,7 +56,7 @@ export function useRoutines(now) {
     hydrate()
     const id = setInterval(hydrate, POLL_MS)
     return () => clearInterval(id)
-  }, [todayKey])
+  }, [todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load routine definitions from Sheets on mount; fall back to config.js
   useEffect(() => {
@@ -61,28 +70,36 @@ export function useRoutines(now) {
   const toggleRoutine = useCallback((childName, routineId) => {
     const key = `${childName}__${routineId}`
 
-    // Read current value from localStorage cache (avoids stale closure)
+    // Read current value from localStorage cache (avoids stale closure),
+    // then overlay any pending in-flight writes so rapid taps stay coherent.
     const raw   = localStorage.getItem(STORAGE_KEY)
     const local = raw ? JSON.parse(raw) : {}
     const curr  = local.date === todayKey ? (local.completed ?? {}) : {}
-    const nextValue = !curr[key]
+    const merged = { ...curr, ...pendingWrites.current }
+    const nextValue = !merged[key]
+
+    // Register this write as in-flight before the async chain starts.
+    pendingWrites.current = { ...pendingWrites.current, [key]: nextValue }
 
     // Optimistic local update for instant UI response
-    const optimistic = { ...curr, [key]: nextValue }
+    const optimistic = { ...curr, ...pendingWrites.current }
     setCompleted(optimistic)
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: optimistic }))
 
-    // Write to Sheets, then re-fetch so Sheets is confirmed before other devices poll
+    // Write to Sheets, then re-fetch so Sheets is confirmed before other devices poll.
+    // Remove the key from pendingWrites only after the round-trip completes.
     sheetsGet({ action: 'setRoutineItem', date: todayKey, key, value: nextValue })
       .then(() => sheetsGet({ action: 'getRoutineState', date: todayKey }))
       .then(data => {
-        if (!data) return
-        const c = data.completed ?? {}
-        setCompleted(c)
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: c }))
+        const { [key]: _done, ...remaining } = pendingWrites.current
+        pendingWrites.current = remaining
+        applySheets(data?.completed ?? {})
       })
-      .catch(() => { /* optimistic state stands on network failure, poll will reconcile */ })
-  }, [todayKey])
+      .catch(() => {
+        const { [key]: _err, ...remaining } = pendingWrites.current
+        pendingWrites.current = remaining
+      })
+  }, [todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const mode = getCurrentScheduleMode(now, CONFIG)
 
