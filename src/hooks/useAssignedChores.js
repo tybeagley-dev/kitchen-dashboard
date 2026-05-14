@@ -42,15 +42,15 @@ function saveAssignments(assignments) {
 // Compute the full chore list for a child from Sheets data + chore definitions.
 // Required chores come from definitions (deterministic on any device).
 // Spin chores come from the Sheets History for today.
-function buildFromSheets(childName, todayEntries, chores) {
-  const today = todayName()
+function buildFromSheets(childName, todayEntries, weekCompleted, chores) {
+  const weekDone = new Set(weekCompleted[childName] ?? [])
 
   const required = chores
     .filter(c =>
       c.required &&
       c.active !== false &&
       (c.days.length === 0 || choreStartedThisWeek(c.days)) &&
-      isChoreAvailableThisWeek(c, childName)
+      !weekDone.has(c.id)
     )
     .map(c => ({
       ...c,
@@ -169,7 +169,7 @@ export function useAssignedChores(childName, chores = []) {
       const data = await sheetsGet({ action: 'getChoreState', date: getToday() })
       if (!data) { setLoading(false); return }
       hydrateWeeklyFromHistory(data.weekCompleted ?? {}, chores)
-      const built = buildFromSheets(childName, data.today?.[childName] ?? {}, chores)
+      const built = buildFromSheets(childName, data.today?.[childName] ?? {}, data.weekCompleted ?? {}, chores)
       const all = loadAssignments()
       all[childName] = built
       saveAssignments(all)
