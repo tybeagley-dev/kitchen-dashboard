@@ -320,7 +320,7 @@ function getChoreState(date) {
   const ref = new Date(dy, dm - 1, dd)
   const dow = ref.getDay()
   const weekStartDate = new Date(ref)
-  weekStartDate.setDate(ref.getDate() + (dow === 0 ? -6 : 1 - dow))
+  weekStartDate.setDate(ref.getDate() - dow) // Sunday-start week
   weekStartDate.setHours(0, 0, 0, 0)
 
   const { rows, idx } = sheetData(TABS.HISTORY)
