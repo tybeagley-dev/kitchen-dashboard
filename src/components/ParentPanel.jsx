@@ -6,6 +6,7 @@ import ParentMealsTab    from './ParentMealsTab'
 import ParentRoutinesTab from './ParentRoutinesTab'
 import ParentMomStoreTab from './ParentMomStoreTab'
 import ParentApprovalsTab from './ParentApprovalsTab'
+import ParentGroceryTab from './ParentGroceryTab'
 import { CONFIG } from '../config/config'
 
 async function fetchPendingCount() {
@@ -55,6 +56,7 @@ export default function ParentPanel({ onClose }) {
     { id: 'routines',  label: 'Routines'     },
     { id: 'meals',     label: 'Meals'        },
     { id: 'store',     label: 'Mom Store'    },
+    { id: 'grocery',   label: 'Grocery'      },
   ]
 
   return (
@@ -85,6 +87,7 @@ export default function ParentPanel({ onClose }) {
           {tab === 'routines'  && <ParentRoutinesTab />}
           {tab === 'meals'     && <ParentMealsTab />}
           {tab === 'store'     && <ParentMomStoreTab />}
+          {tab === 'grocery'   && <ParentGroceryTab />}
         </div>
       </div>
     </div>

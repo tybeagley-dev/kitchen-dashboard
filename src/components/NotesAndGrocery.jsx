@@ -31,17 +31,6 @@ export default function NotesAndGrocery() {
     if (e.key === 'Enter') handleAdd()
   }
 
-  async function handleShare() {
-    const text = items.length === 0
-      ? 'Grocery list is empty!'
-      : `Grocery List 🛒\n\n${items.map(i => `• ${i.item}`).join('\n')}`
-    if (navigator.share) {
-      try { await navigator.share({ title: 'Grocery List', text }) } catch {}
-    } else {
-      await navigator.clipboard.writeText(text)
-    }
-  }
-
   function handleClear() {
     if (confirmClear) {
       clearAll()
@@ -163,9 +152,6 @@ export default function NotesAndGrocery() {
 
             {items.length > 0 && (
               <div className="grocery-actions">
-                <button className="grocery-share-btn" onClick={handleShare}>
-                  📱 Send as Text
-                </button>
                 <button
                   className={`grocery-clear-btn ${confirmClear ? 'confirm' : ''}`}
                   onClick={handleClear}

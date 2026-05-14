@@ -17,12 +17,6 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
   const [firstBundle,  setFirstBundle]  = useState([])
   const [secondBundle, setSecondBundle] = useState([])
 
-  useEffect(() => {
-    function onKey(e) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   function filteredPool(excludeIds = []) {
     const targetBucks = mode === MODE.TWO_ONE ? 1 : 2
     const claimed     = getClaimedChoreIds(child.name)
@@ -81,10 +75,8 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
   const isSpinPhase = phase === PHASE.READY || phase === PHASE.RESPIN
 
   return (
-    <div className="modal-backdrop" onMouseDown={e => e.target === e.currentTarget && onClose()}>
+    <div className="modal-backdrop">
       <div className="modal-card">
-        <button className="modal-close" onClick={onClose} aria-label="Close">×</button>
-
         <div className="modal-child-header">
           <div className="modal-avatar" style={{ background: child.color }}>
             {child.emoji}

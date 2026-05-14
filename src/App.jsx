@@ -24,6 +24,20 @@ export default function App() {
     }
   }, [])
 
+  // Reload after 30+ minutes in the background so the iPad always runs current code
+  useEffect(() => {
+    let hiddenAt = null
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden') {
+        hiddenAt = Date.now()
+      } else if (hiddenAt !== null && Date.now() - hiddenAt >= 30 * 60 * 1000) {
+        location.reload()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange)
+  }, [])
+
   // Unlock Web Audio on first user gesture so chimes work on iOS Safari
   useEffect(() => {
     const unlock = () => unlockAudio()

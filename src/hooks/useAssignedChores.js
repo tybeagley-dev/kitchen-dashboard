@@ -11,6 +11,14 @@ const POLL_MS      = 20 * 1000
 function getToday() { return getTodayKey(new Date()) }
 function todayName() { return new Date().toLocaleDateString('en-US', { weekday: 'long' }) }
 
+const DAY_INDEX = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 }
+
+// True if any of the chore's designated days has arrived this week (Sun–Sat).
+function choreStartedThisWeek(days) {
+  const todayIdx = new Date().getDay()
+  return days.some(d => (DAY_INDEX[d] ?? 7) <= todayIdx)
+}
+
 async function sheetsGet(params) {
   if (!CONFIG.appsScriptUrl) return null
   const url = new URL(CONFIG.appsScriptUrl)
@@ -41,7 +49,7 @@ function buildFromSheets(childName, todayEntries, chores) {
     .filter(c =>
       c.required &&
       c.active !== false &&
-      (c.days.length === 0 || c.days.includes(today)) &&
+      (c.days.length === 0 || choreStartedThisWeek(c.days)) &&
       isChoreAvailableThisWeek(c, childName)
     )
     .map(c => ({
