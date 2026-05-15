@@ -253,10 +253,32 @@ function requestApproval(params) {
   const choreLabel = decodeURIComponent(params.choreLabel || '')
   const bucks      = Number(params.bucks) || 0
   if (!child || !choreId) return { success: false, error: 'Missing params' }
-  SpreadsheetApp.getActiveSpreadsheet()
-    .getSheetByName(TABS.HISTORY)
-    .appendRow([new Date(), child, choreId, choreLabel, bucks, 'pending_approval'])
-  return { success: true }
+
+  const lock = LockService.getScriptLock()
+  lock.waitLock(10000)
+  try {
+    const today = _routineDateKey(new Date())
+    const { rows, idx } = sheetData(TABS.HISTORY)
+    const alreadyExists = rows.some(r => {
+      const ts = r[idx('timestamp')]
+      if (!ts) return false
+      if (_routineDateKey(ts instanceof Date ? ts : new Date(ts)) !== today) return false
+      const status = String(r[idx('status')] || '')
+      return (
+        String(r[idx('child')]   || '') === child   &&
+        String(r[idx('choreId')] || '') === choreId &&
+        (status === 'pending_approval' || status === 'completed')
+      )
+    })
+    if (alreadyExists) return { success: true, skipped: true }
+
+    SpreadsheetApp.getActiveSpreadsheet()
+      .getSheetByName(TABS.HISTORY)
+      .appendRow([new Date(), child, choreId, choreLabel, bucks, 'pending_approval'])
+    return { success: true }
+  } finally {
+    lock.releaseLock()
+  }
 }
 
 function approveChore(params) {

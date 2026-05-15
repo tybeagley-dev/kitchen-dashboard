@@ -171,7 +171,14 @@ export function useAssignedChores(childName, chores = []) {
       hydrateWeeklyFromHistory(data.weekCompleted ?? {}, chores)
       const built = buildFromSheets(childName, data.today?.[childName] ?? {}, data.weekCompleted ?? {}, chores)
       const all = loadAssignments()
-      all[childName] = built
+      // Preserve local pending flags that Sheets may not have caught up with yet.
+      // Only clear them once Sheets confirms the chore is completed (approved).
+      const localChores = all[childName] ?? []
+      const localPending = new Set(localChores.filter(c => c.pending && !c.completed).map(c => c.id))
+      all[childName] = built.map(c => ({
+        ...c,
+        pending: c.pending || (localPending.has(c.id) && !c.completed),
+      }))
       saveAssignments(all)
       setLoading(false)
     }

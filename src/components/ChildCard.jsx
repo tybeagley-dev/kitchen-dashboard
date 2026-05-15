@@ -56,17 +56,24 @@ export default function ChildCard({ child, routines, routinesLoading, chores, ch
   }, [timer?.expired])
 
   const [instructionsChore, setInstructionsChore] = useState(null)
+  const [submitting, setSubmitting] = useState(new Set())
 
   async function handleChoreRequest(chore) {
-    markChoreAsPending(child.name, chore.id)
-    markChoreToday(child.name)
-    recordChoreCompletion(child.name, chore.id, chore.required)
-    await submitApprovalRequest(child, chore.id, chore.label, chore.bucks)
-    triggerChoreRefetch()
+    if (submitting.has(chore.id)) return
+    setSubmitting(prev => new Set([...prev, chore.id]))
+    try {
+      markChoreAsPending(child.name, chore.id)
+      markChoreToday(child.name)
+      recordChoreCompletion(child.name, chore.id, chore.required)
+      await submitApprovalRequest(child, chore.id, chore.label, chore.bucks)
+      triggerChoreRefetch()
+    } finally {
+      setSubmitting(prev => { const next = new Set(prev); next.delete(chore.id); return next })
+    }
   }
 
   function handleChoreTap(chore) {
-    if (chore.completed || chore.pending) return
+    if (chore.completed || chore.pending || submitting.has(chore.id)) return
     if (chore.instructions?.length) {
       setInstructionsChore(chore)
     } else {
