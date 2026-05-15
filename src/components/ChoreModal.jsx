@@ -16,6 +16,7 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
   const [mode,         setMode]         = useState(MODE.TWO_ONE)
   const [firstBundle,  setFirstBundle]  = useState([])
   const [secondBundle, setSecondBundle] = useState([])
+  const [spinning,     setSpinning]     = useState(false)
 
   function filteredPool(excludeIds = []) {
     const targetBucks = mode === MODE.TWO_ONE ? 1 : 2
@@ -42,6 +43,7 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
   }
 
   function handleSpinEnd(firstChore) {
+    setSpinning(false)
     if (phase === PHASE.READY) {
       setFirstBundle(buildBundle(firstChore))
       setPhase(PHASE.RESULT)
@@ -64,8 +66,10 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
 
   function switchMode(newMode) {
     setMode(newMode)
-    setPhase(PHASE.READY)
-    setFirstBundle([])
+    if (phase !== PHASE.RESPIN) {
+      setPhase(PHASE.READY)
+      setFirstBundle([])
+    }
     setSecondBundle([])
   }
 
@@ -87,20 +91,22 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
           </div>
         </div>
 
-        <div className="chore-mode-toggle">
-          <button
-            className={`chore-mode-btn ${mode === MODE.TWO_ONE ? 'active' : ''}`}
-            onClick={() => switchMode(MODE.TWO_ONE)}
-          >
-            <BuckBadge amount={1} /> × 2 chores
-          </button>
-          <button
-            className={`chore-mode-btn ${mode === MODE.ONE_TWO ? 'active' : ''}`}
-            onClick={() => switchMode(MODE.ONE_TWO)}
-          >
-            <BuckBadge amount={2} /> × 1 chore
-          </button>
-        </div>
+        {!spinning && (phase === PHASE.READY || phase === PHASE.RESPIN) && (
+          <div className="chore-mode-toggle">
+            <button
+              className={`chore-mode-btn ${mode === MODE.TWO_ONE ? 'active' : ''}`}
+              onClick={() => switchMode(MODE.TWO_ONE)}
+            >
+              <BuckBadge amount={1} /> × 2 chores
+            </button>
+            <button
+              className={`chore-mode-btn ${mode === MODE.ONE_TWO ? 'active' : ''}`}
+              onClick={() => switchMode(MODE.ONE_TWO)}
+            >
+              <BuckBadge amount={2} /> × 1 chore
+            </button>
+          </div>
+        )}
 
         {/* ── CHOOSE phase: pick one of two bundles ── */}
         {phase === PHASE.CHOOSE && (
@@ -134,6 +140,7 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
                 <SpinningWheel
                   key={phase}
                   chores={activePool}
+                  onSpinStart={() => setSpinning(true)}
                   onSpinEnd={handleSpinEnd}
                 />
               </div>

@@ -23,7 +23,7 @@ function segmentPath(r, startDeg, endDeg) {
   return `M 0 0 L ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)} Z`
 }
 
-export default function SpinningWheel({ chores, onSpinEnd }) {
+export default function SpinningWheel({ chores, onSpinEnd, onSpinStart }) {
   const [rotation, setRotation] = useState(0)
   const [spinning, setSpinning] = useState(false)
   const timeoutRef = useRef(null)
@@ -46,6 +46,7 @@ export default function SpinningWheel({ chores, onSpinEnd }) {
 
     setSpinning(true)
     setRotation(newRotation)
+    onSpinStart?.()
 
     clearTimeout(timeoutRef.current)
     timeoutRef.current = setTimeout(() => {
