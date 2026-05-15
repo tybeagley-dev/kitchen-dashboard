@@ -70,6 +70,7 @@ function buildFromSheets(childName, todayEntries, weekCompleted, chores) {
         instructions: def.instructions ?? [],
         completed:    entry.status === 'completed',
         pending:      entry.status === 'pending_approval',
+        acceptedAt:   entry.acceptedAt ?? null,
       }
     })
     .filter(c => !c.required)
@@ -95,7 +96,8 @@ export function assignChores(childName, newChores) {
   const existingIds = new Set(existing.map(c => c.id))
   const toAdd      = newChores.filter(c => !existingIds.has(c.id))
   if (!toAdd.length) return
-  all[childName] = [...existing, ...toAdd]
+  const now = new Date().toISOString()
+  all[childName] = [...existing, ...toAdd.map(c => ({ ...c, acceptedAt: c.acceptedAt ?? now }))]
   saveAssignments(all)
 }
 
@@ -171,13 +173,15 @@ export function useAssignedChores(childName, chores = []) {
       hydrateWeeklyFromHistory(data.weekCompleted ?? {}, chores)
       const built = buildFromSheets(childName, data.today?.[childName] ?? {}, data.weekCompleted ?? {}, chores)
       const all = loadAssignments()
-      // Preserve local pending flags that Sheets may not have caught up with yet.
-      // Only clear them once Sheets confirms the chore is completed (approved).
+      // Preserve local pending flags and acceptedAt that Sheets may not have caught up with yet.
+      // Only clear pending once Sheets confirms the chore is completed (approved).
       const localChores = all[childName] ?? []
       const localPending = new Set(localChores.filter(c => c.pending && !c.completed).map(c => c.id))
+      const localMap = Object.fromEntries(localChores.map(c => [c.id, c]))
       all[childName] = built.map(c => ({
         ...c,
-        pending: c.pending || (localPending.has(c.id) && !c.completed),
+        pending:    c.pending || (localPending.has(c.id) && !c.completed),
+        acceptedAt: c.acceptedAt ?? localMap[c.id]?.acceptedAt ?? null,
       }))
       saveAssignments(all)
       setLoading(false)

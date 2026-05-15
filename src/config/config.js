@@ -132,6 +132,10 @@ export const CONFIG = {
     'Grandma visits next Saturday — help clean up Friday!',
   ],
 
+  // ── Chore Cool-down ────────────────────────────────────────────────────────
+  // Minimum minutes between accepting a spin chore and marking it complete.
+  choreCooldownMinutes: 1,
+
   // ── Screen Time ────────────────────────────────────────────────────────────
   // minutesPerChore: how much screen time is awarded per completed chore
   // timerBufferMinutes: countdown duration when kids choose "Start Timer"

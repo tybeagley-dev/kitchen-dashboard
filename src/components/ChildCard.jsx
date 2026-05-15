@@ -31,6 +31,13 @@ export default function ChildCard({ child, routines, routinesLoading, chores, ch
 
   const isLoading = routinesLoading || choresLoading || assignedLoading
 
+  const cooldownMs = (CONFIG.choreCooldownMinutes ?? 5) * 60 * 1000
+  function cooldownMinsRemaining(chore) {
+    if (chore.required || !chore.acceptedAt) return 0
+    const elapsed = Date.now() - new Date(chore.acceptedAt).getTime()
+    return Math.max(0, Math.ceil((cooldownMs - elapsed) / 60000))
+  }
+
   const requiredChores = assignedChores.filter(c => c.required)
   const spinChores     = assignedChores.filter(c => !c.required)
 
@@ -74,6 +81,7 @@ export default function ChildCard({ child, routines, routinesLoading, chores, ch
 
   function handleChoreTap(chore) {
     if (chore.completed || chore.pending || submitting.has(chore.id)) return
+    if (cooldownMinsRemaining(chore) > 0) return
     if (chore.instructions?.length) {
       setInstructionsChore(chore)
     } else {
@@ -147,7 +155,7 @@ export default function ChildCard({ child, routines, routinesLoading, chores, ch
                 {spinChores.map(chore => (
                   <RoutineItem
                     key={chore.id}
-                    routine={chore}
+                    routine={{ ...chore, cooldownMins: cooldownMinsRemaining(chore) }}
                     onToggle={() => handleChoreTap(chore)}
                   />
                 ))}

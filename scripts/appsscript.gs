@@ -363,12 +363,20 @@ function getChoreState(date) {
     const status    = (statusIdx >= 0 && row[statusIdx]) ? String(row[statusIdx]) : 'completed'
     const rowDateKey = _routineDateKey(rowDate)
 
-    // Today's assignments
+    // Today's assignments — priority: completed > pending_approval > accepted
     if (rowDateKey === date) {
       if (!today[child]) today[child] = {}
-      // completed takes priority over accepted for the same choreId
-      if (!today[child][choreId] || status === 'completed') {
-        today[child][choreId] = { choreLabel, bucks, status }
+      const PRIORITY = { 'completed': 2, 'pending_approval': 1, 'accepted': 0 }
+      const existing = today[child][choreId]
+      const existingPri = existing ? (PRIORITY[existing.status] ?? -1) : -1
+      const newPri = PRIORITY[status] ?? 0
+      if (!existing || newPri > existingPri) {
+        today[child][choreId] = {
+          choreLabel, bucks, status,
+          acceptedAt: status === 'accepted' ? rowDate.toISOString() : (existing?.acceptedAt ?? null),
+        }
+      } else if (status === 'accepted' && !existing.acceptedAt) {
+        existing.acceptedAt = rowDate.toISOString()
       }
     }
 
