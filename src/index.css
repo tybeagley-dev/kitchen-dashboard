@@ -2796,6 +2796,51 @@ button {
   opacity: 0.5;
 }
 
+.chore-assign-btn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chore-assign-btn:hover { background: var(--surface-2); color: var(--text); }
+
+.chore-assign-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.chore-assign-child-btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.chore-assign-child-btn:hover { background: var(--surface-3, #e8ddd4); }
+
+.chore-assign-cancel {
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px 6px;
+}
+
+.chore-assign-confirm {
+  font-size: 12px;
+  color: #4caf50;
+  margin-top: 4px;
+  display: block;
+}
+
 .chore-inactive-badge {
   font-size: 10px;
   font-weight: 600;

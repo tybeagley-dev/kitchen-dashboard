@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminGetAllChores, adminAddChore, adminEditChore, adminDeleteChore } from '../hooks/useChores'
+import { apiPost } from '../utils/api'
+import { CONFIG } from '../config/config'
 import BuckBadge from './BuckBadge'
 
 const DAYS      = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -12,6 +14,21 @@ function emptyChore() {
 // ── Chore row in list view ────────────────────────────────────────────────────
 
 function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDelete, onCancelDelete }) {
+  const [assigning, setAssigning] = useState(false)
+  const [assigned,  setAssigned]  = useState('')
+
+  async function handleAssign(child) {
+    await apiPost(`/chores/${chore.id}/accept`, {
+      child:      child.name,
+      choreLabel: chore.label,
+      bucks:      chore.bucks,
+    })
+    setAssigned(child.name)
+    setAssigning(false)
+    setTimeout(() => setAssigned(''), 2000)
+    window.dispatchEvent(new Event('fam_refetch_chores'))
+  }
+
   if (confirmDelete) {
     return (
       <div className="chore-admin-row deleting">
@@ -35,8 +52,22 @@ function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDele
           {chore.required && ' · Required'}
           {chore.frequency === 'weekly' && ' · Weekly'}
         </span>
+        {assigning && (
+          <div className="chore-assign-picker">
+            {CONFIG.children.map(child => (
+              <button key={child.name} className="chore-assign-child-btn" onClick={() => handleAssign(child)}>
+                {child.emoji} {child.name}
+              </button>
+            ))}
+            <button className="chore-assign-cancel" onClick={() => setAssigning(false)}>Cancel</button>
+          </div>
+        )}
+        {assigned && <span className="chore-assign-confirm">Assigned to {assigned} ✓</span>}
       </div>
       <BuckBadge amount={chore.bucks} />
+      {!assigning && !assigned && (
+        <button className="chore-assign-btn" onClick={() => setAssigning(true)} title="Assign to child">→</button>
+      )}
       <button className="chore-admin-edit-btn" onClick={onEdit}>Edit</button>
       <button className="chore-admin-del-btn"  onClick={onDeleteRequest}>×</button>
     </div>
