@@ -24,6 +24,7 @@ jobs:
         env:
           VITE_APPS_SCRIPT_URL: ${{ secrets.VITE_APPS_SCRIPT_URL }}
           VITE_PARENT_PIN: ${{ secrets.VITE_PARENT_PIN }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - uses: peaceiris/actions-gh-pages@v4
         with:
