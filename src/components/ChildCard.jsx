@@ -8,7 +8,6 @@ import { useAssignedChores, markChoreAsPending, submitApprovalRequest, triggerCh
 import { recordChoreCompletion } from '../hooks/useChoreFrequency'
 import { startChimeLoop, stopChimeLoop } from '../utils/chime'
 import { CONFIG } from '../config/config'
-
 function isChoreDay() {
   return new Date().getDay() !== 0
 }

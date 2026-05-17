@@ -10,12 +10,9 @@ import ParentGroceryTab from './ParentGroceryTab'
 import { CONFIG } from '../config/config'
 
 async function fetchPendingCount() {
-  if (!CONFIG.appsScriptUrl) return 0
   try {
-    const url = new URL(CONFIG.appsScriptUrl)
-    url.searchParams.set('action', 'getPendingApprovals')
-    url.searchParams.set('_t', Date.now())
-    const data = await fetch(url.toString()).then(r => r.json())
+    const { apiGet } = await import('../utils/api')
+    const data = await apiGet('/chores/pending-approvals')
     return Array.isArray(data) ? data.length : 0
   } catch { return 0 }
 }

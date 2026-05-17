@@ -11,14 +11,7 @@ function getLocalBucks() {
 
 function saveLocalBucks(obj) {
   localStorage.setItem(BUCKS_KEY, JSON.stringify(obj))
-}
-
-function sheetsGet(params) {
-  if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
-  const url = new URL(CONFIG.appsScriptUrl)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  url.searchParams.set('_t', Date.now())
-  return fetch(url.toString()).then(r => r.json()).catch(() => null)
+  window.dispatchEvent(new Event('fam_bucks_update'))
 }
 
 // ── Chore pool ────────────────────────────────────────────────────────────────
@@ -29,14 +22,10 @@ export function useChores() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    if (!CONFIG.appsScriptUrl) {
-      setChores(CONFIG.demoChores)
-      setLoading(false)
-      return
-    }
     try {
-      const data = await sheetsGet({ action: 'getChores' })
-      setChores(data ?? CONFIG.demoChores)
+      const { apiGet } = await import('../utils/api')
+      const data = await apiGet('/chores')
+      setChores(Array.isArray(data) && data.length > 0 ? data : CONFIG.demoChores)
     } catch {
       setChores(CONFIG.demoChores)
     } finally {
@@ -54,34 +43,40 @@ export function useChores() {
 export function useChorePoints(childName) {
   const [bucks, setBucks] = useState(() => getLocalBucks()[childName] ?? 0)
 
-  // Hydrate from Sheets on mount
+  // Hydrate from API on mount
   useEffect(() => {
     async function load() {
-      const data = await sheetsGet({ action: 'getBucks' })
-      if (!data) return
+      const { apiGet } = await import('../utils/api')
+      const data = await apiGet('/bucks')
+      if (!Array.isArray(data)) return
       const row = data.find(d => d.child === childName)
       if (row) {
-        setBucks(row.bucks)
+        setBucks(Number(row.balance))
         const local = getLocalBucks()
-        local[childName] = row.bucks
+        local[childName] = Number(row.balance)
         saveLocalBucks(local)
       }
     }
     load()
   }, [childName])
 
-  const recordCompletion = useCallback(async (child, choreId, bucksEarned) => {
+  // Sync across hook instances when any instance updates bucks
+  useEffect(() => {
+    function onUpdate() { setBucks(getLocalBucks()[childName] ?? 0) }
+    window.addEventListener('fam_bucks_update', onUpdate)
+    return () => window.removeEventListener('fam_bucks_update', onUpdate)
+  }, [childName])
+
+  const recordCompletion = useCallback(async (_child, _choreId, bucksEarned) => {
     setBucks(b => {
       const next = b + bucksEarned
       const local = getLocalBucks()
-      local[child] = next
+      local[childName] = next
       saveLocalBucks(local)
       return next
     })
-
-    const result = await sheetsGet({ action: 'completeChore', child, choreId })
-    return result ?? { success: true, bucksEarned }
-  }, [])
+    return { success: true, bucksEarned }
+  }, [childName])
 
   const adjustBucks = useCallback((delta) => {
     setBucks(b => {
@@ -91,18 +86,17 @@ export function useChorePoints(childName) {
       saveLocalBucks(local)
       return next
     })
-
-    sheetsGet({ action: 'adjustBucks', child: childName, delta })
   }, [childName])
 
   const reloadBucks = useCallback(async () => {
-    const data = await sheetsGet({ action: 'getBucks' })
-    if (!data) return
+    const { apiGet } = await import('../utils/api')
+    const data = await apiGet('/bucks')
+    if (!Array.isArray(data)) return
     const row = data.find(d => d.child === childName)
     if (row) {
-      setBucks(row.bucks)
+      setBucks(Number(row.balance))
       const local = getLocalBucks()
-      local[childName] = row.bucks
+      local[childName] = Number(row.balance)
       saveLocalBucks(local)
     }
   }, [childName])
@@ -145,39 +139,41 @@ export function useChoreCompletedToday(childName) {
 // ── Chore admin (parent panel) ────────────────────────────────────────────
 
 export async function adminAddChore(data) {
-  return sheetsGet({
-    action:       'addChore',
-    label:        encodeURIComponent(data.label),
+  const { apiPost } = await import('../utils/api')
+  return apiPost('/chores', {
+    id:           data.id || Date.now().toString(36),
+    label:        data.label,
     bucks:        data.bucks,
-    icon:         encodeURIComponent(data.icon),
-    days:         encodeURIComponent(data.days.join(',')),
-    frequency:    data.frequency,
-    required:     data.required ? 'true' : 'false',
-    instructions: encodeURIComponent(data.instructions.filter(Boolean).join('|')),
-  })
+    icon:         data.icon,
+    active:       data.active !== false,
+    required:     data.required ?? false,
+    days:         data.days ?? [],
+    instructions: data.instructions?.filter(Boolean) ?? [],
+    max_per_week: data.frequency === 'weekly' ? 1 : null,
+  }, CONFIG.parentPin)
 }
 
 export async function adminGetAllChores() {
-  if (!CONFIG.appsScriptUrl) return CONFIG.demoChores
-  const data = await sheetsGet({ action: 'getChores', includeInactive: 'true' })
-  return data ?? CONFIG.demoChores
+  const { apiGet } = await import('../utils/api')
+  const data = await apiGet('/chores?includeInactive=true')
+  return Array.isArray(data) && data.length > 0 ? data : CONFIG.demoChores
 }
 
 export async function adminEditChore(data) {
-  return sheetsGet({
-    action:       'editChore',
-    id:           data.id,
-    label:        encodeURIComponent(data.label),
+  const { apiPut } = await import('../utils/api')
+  return apiPut(`/chores/${data.id}`, {
+    label:        data.label,
     bucks:        data.bucks,
-    icon:         encodeURIComponent(data.icon),
-    active:       data.active !== false ? 'true' : 'false',
-    days:         encodeURIComponent(data.days.join(',')),
-    frequency:    data.frequency,
-    required:     data.required ? 'true' : 'false',
-    instructions: encodeURIComponent(data.instructions.filter(Boolean).join('|')),
-  })
+    icon:         data.icon,
+    active:       data.active !== false,
+    required:     data.required ?? false,
+    days:         data.days ?? [],
+    instructions: data.instructions?.filter(Boolean) ?? [],
+    max_per_week: data.frequency === 'weekly' ? 1 : null,
+  }, CONFIG.parentPin)
 }
 
 export async function adminDeleteChore(id) {
-  return sheetsGet({ action: 'deleteChore', id })
+  const { apiDelete } = await import('../utils/api')
+  return apiDelete(`/chores/${id}`, CONFIG.parentPin)
 }

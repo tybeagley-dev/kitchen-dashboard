@@ -1,18 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
 import { getCurrentScheduleMode } from '../utils/scheduleUtils'
+import { apiGet, apiPost, apiPut, apiDelete } from '../utils/api'
 
-const STORAGE_KEY = 'fam_dash_routines'
-const POLL_MS     = 20 * 1000
-
-function sheetsGet(params) {
-  if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
-  const url = new URL(CONFIG.appsScriptUrl)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  url.searchParams.set('_t', Date.now())
-  return fetch(url.toString()).then(r => r.json()).catch(() => null)
-}
+const POLL_MS = 20 * 1000
 
 function configDefs() {
   const all = []
@@ -30,76 +22,40 @@ export function useRoutines(now) {
   const [loading,     setLoading]     = useState(true)
   const todayKey = getTodayKey(now)
 
-  // Tracks writes that are in-flight so re-fetches can't overwrite them.
-  // Keyed by routine key, value is the optimistic boolean.
-  const pendingWrites = useRef({})
-
-  function applySheets(sheetsCompleted) {
-    // Always overlay any still-in-flight optimistic writes on top of Sheets data.
-    const merged = { ...sheetsCompleted, ...pendingWrites.current }
-    setCompleted(merged)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: merged }))
-  }
-
-  // Sheets is the source of truth — fetch on mount and poll every 20s.
-  // No localStorage trust on load; localStorage is only a within-session write cache.
+  // Completion state from API — poll every 20s for cross-device sync
   useEffect(() => {
-    if (!CONFIG.appsScriptUrl) { setLoading(false); return }
-
     async function hydrate() {
-      const data = await sheetsGet({ action: 'getRoutineState', date: todayKey })
-      applySheets(data?.completed ?? {})
+      const data = await apiGet(`/routines?date=${todayKey}`)
+      if (data?.completed) setCompleted(data.completed)
       setLoading(false)
     }
-
     setLoading(true)
     hydrate()
     const id = setInterval(hydrate, POLL_MS)
     return () => clearInterval(id)
-  }, [todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [todayKey])
 
-  // Load routine definitions from Sheets on mount; fall back to config.js
+  // Routine definitions — prefer DB, fall back to config.js
   useEffect(() => {
-    async function loadDefs() {
-      const data = await sheetsGet({ action: 'getRoutineDefs' })
+    apiGet('/routines/defs').then(data => {
       if (Array.isArray(data) && data.length > 0) setRoutineDefs(data)
-    }
-    loadDefs()
+    })
   }, [])
 
   const toggleRoutine = useCallback((childName, routineId) => {
     const key = `${childName}__${routineId}`
 
-    // Read current value from localStorage cache (avoids stale closure),
-    // then overlay any pending in-flight writes so rapid taps stay coherent.
-    const raw   = localStorage.getItem(STORAGE_KEY)
-    const local = raw ? JSON.parse(raw) : {}
-    const curr  = local.date === todayKey ? (local.completed ?? {}) : {}
-    const merged = { ...curr, ...pendingWrites.current }
-    const nextValue = !merged[key]
+    // Optimistic update
+    setCompleted(prev => ({ ...prev, [key]: !prev[key] }))
 
-    // Register this write as in-flight before the async chain starts.
-    pendingWrites.current = { ...pendingWrites.current, [key]: nextValue }
-
-    // Optimistic local update for instant UI response
-    const optimistic = { ...curr, ...pendingWrites.current }
-    setCompleted(optimistic)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey, completed: optimistic }))
-
-    // Write to Sheets, then re-fetch so Sheets is confirmed before other devices poll.
-    // Remove the key from pendingWrites only after the round-trip completes.
-    sheetsGet({ action: 'setRoutineItem', date: todayKey, key, value: nextValue })
-      .then(() => sheetsGet({ action: 'getRoutineState', date: todayKey }))
-      .then(data => {
-        const { [key]: _done, ...remaining } = pendingWrites.current
-        pendingWrites.current = remaining
-        applySheets(data?.completed ?? {})
-      })
+    // Write to API — response contains confirmed state, apply it
+    apiPost('/routines/toggle', { date: todayKey, child: childName, routineId })
+      .then(data => { if (data?.completed) setCompleted(data.completed) })
       .catch(() => {
-        const { [key]: _err, ...remaining } = pendingWrites.current
-        pendingWrites.current = remaining
+        // Revert optimistic update on failure
+        setCompleted(prev => ({ ...prev, [key]: !prev[key] }))
       })
-  }, [todayKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [todayKey])
 
   const mode = getCurrentScheduleMode(now, CONFIG)
 
@@ -127,7 +83,7 @@ export function useRoutineDefs() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    const data = await sheetsGet({ action: 'getRoutineDefs' })
+    const data = await apiGet('/routines/defs')
     setDefs(Array.isArray(data) ? data : [])
     setLoading(false)
   }, [])
@@ -138,30 +94,28 @@ export function useRoutineDefs() {
 }
 
 export async function adminAddRoutineDef(data) {
-  return sheetsGet({
-    action:    'addRoutineDef',
-    child:     encodeURIComponent(data.child),
-    label:     encodeURIComponent(data.label),
-    icon:      encodeURIComponent(data.icon),
-    schedules: encodeURIComponent(data.schedules.join(',')),
-    time:      data.time || '',
-    sortOrder: data.sortOrder ?? 0,
+  return apiPost('/routines/defs', {
+    id:        data.id,
+    child:     data.child,
+    label:     data.label,
+    icon:      data.icon,
+    schedules: data.schedules,
+    time:      data.time || null,
+    sort_order: data.sortOrder ?? 0,
   })
 }
 
 export async function adminEditRoutineDef(data) {
-  return sheetsGet({
-    action:    'editRoutineDef',
-    id:        data.id,
-    child:     encodeURIComponent(data.child),
-    label:     encodeURIComponent(data.label),
-    icon:      encodeURIComponent(data.icon),
-    schedules: encodeURIComponent(data.schedules.join(',')),
-    time:      data.time || '',
-    sortOrder: data.sortOrder ?? 0,
+  return apiPut(`/routines/defs/${data.id}`, {
+    child:     data.child,
+    label:     data.label,
+    icon:      data.icon,
+    schedules: data.schedules,
+    time:      data.time || null,
+    sort_order: data.sortOrder ?? 0,
   })
 }
 
 export async function adminDeleteRoutineDef(id) {
-  return sheetsGet({ action: 'deleteRoutineDef', id })
+  return apiDelete(`/routines/defs/${id}`)
 }

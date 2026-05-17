@@ -2,21 +2,13 @@ import { useState, useEffect } from 'react'
 import { useScreenBalance, startChildTimer } from '../hooks/useScreenTime'
 import { useChorePoints } from '../hooks/useChores'
 import BuckBadge from './BuckBadge'
-import { CONFIG } from '../config/config'
 import { getTodayKey } from '../utils/dateUtils'
+import { apiGet, apiPost } from '../utils/api'
 
 const PHASE           = { VIEW: 'view', BUY: 'buy' }
 const MINS_PER_BUCK   = 10
 const DAILY_MAX_BUCKS = 30
 const MAX_PER_TRADE   = 3
-
-function sheetsGet(params) {
-  if (!CONFIG.appsScriptUrl) return Promise.resolve(null)
-  const url = new URL(CONFIG.appsScriptUrl)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  url.searchParams.set('_t', Date.now())
-  return fetch(url.toString()).then(r => r.json()).catch(() => null)
-}
 
 export default function ScreenTimeModal({ child, onClose }) {
   const { balance, addMinutes } = useScreenBalance(child.name)
@@ -34,7 +26,7 @@ export default function ScreenTimeModal({ child, onClose }) {
 
   useEffect(() => {
     async function loadTradeCount() {
-      const data = await sheetsGet({ action: 'getDailyTradeCount', child: child.name, date: getTodayKey(new Date()) })
+      const data = await apiGet(`/screen-time/${child.name}/trade-count?date=${getTodayKey(new Date())}`)
       if (data?.traded != null) setTradedToday(data.traded)
       setTradeLoading(false)
     }
@@ -42,10 +34,10 @@ export default function ScreenTimeModal({ child, onClose }) {
   }, [child.name])
 
   async function handleBuy() {
-    const result = await sheetsGet({ action: 'tradeBucksForTime', child: child.name, amount, date: getTodayKey(new Date()) })
+    const result = await apiPost(`/screen-time/${child.name}/trade`, { amount, date: getTodayKey(new Date()) })
     if (!result?.success) return
     adjustBucks(-result.bucksTrade)
-    addMinutes(result.minutesAdded)
+    window.dispatchEvent(new Event('fam_balance_update'))
     onClose()
   }
 

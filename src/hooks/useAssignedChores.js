@@ -2,29 +2,20 @@ import { useState, useEffect } from 'react'
 import { getTodayKey } from '../utils/dateUtils'
 import { CONFIG } from '../config/config'
 import { hydrateWeeklyFromHistory, isChoreAvailableThisWeek } from './useChoreFrequency'
+import { apiGet, apiPost } from '../utils/api'
 
-const ASSIGNED_KEY = 'fam_dash_assigned_chores'
-const EVENT        = 'fam_assigned_update'
+const ASSIGNED_KEY  = 'fam_dash_assigned_chores'
+const EVENT         = 'fam_assigned_update'
 const REFETCH_EVENT = 'fam_refetch_chores'
-const POLL_MS      = 20 * 1000
+const POLL_MS       = 20 * 1000
 
 function getToday() { return getTodayKey(new Date()) }
-function todayName() { return new Date().toLocaleDateString('en-US', { weekday: 'long' }) }
 
 const DAY_INDEX = { Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6 }
 
-// True if any of the chore's designated days has arrived this week (Sun–Sat).
 function choreStartedThisWeek(days) {
   const todayIdx = new Date().getDay()
   return days.some(d => (DAY_INDEX[d] ?? 7) <= todayIdx)
-}
-
-async function sheetsGet(params) {
-  if (!CONFIG.appsScriptUrl) return null
-  const url = new URL(CONFIG.appsScriptUrl)
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
-  url.searchParams.set('_t', Date.now())
-  try { return await fetch(url.toString()).then(r => r.json()) } catch { return null }
 }
 
 function loadAssignments() {
@@ -39,10 +30,7 @@ function saveAssignments(assignments) {
   window.dispatchEvent(new CustomEvent(EVENT))
 }
 
-// Compute the full chore list for a child from Sheets data + chore definitions.
-// Required chores come from definitions (deterministic on any device).
-// Spin chores come from the Sheets History for today.
-function buildFromSheets(childName, todayEntries, weekCompleted, chores) {
+function buildFromApi(childName, todayEntries, weekCompleted, chores) {
   const weekDone = new Set(weekCompleted[childName] ?? [])
 
   const required = chores
@@ -89,12 +77,11 @@ export function getClaimedChoreIds(childName) {
   return ids
 }
 
-// Optimistic local assignment for spin chores (still needed for instant UI response)
 export function assignChores(childName, newChores) {
-  const all        = loadAssignments()
-  const existing   = all[childName] ?? []
+  const all         = loadAssignments()
+  const existing    = all[childName] ?? []
   const existingIds = new Set(existing.map(c => c.id))
-  const toAdd      = newChores.filter(c => !existingIds.has(c.id))
+  const toAdd       = newChores.filter(c => !existingIds.has(c.id))
   if (!toAdd.length) return
   const now = new Date().toISOString()
   all[childName] = [...existing, ...toAdd.map(c => ({ ...c, acceptedAt: c.acceptedAt ?? now }))]
@@ -119,13 +106,10 @@ export function completeAssignedChore(childName, choreId) {
   saveAssignments(all)
 }
 
-// Write spin chore acceptances to Sheets — returns a Promise so callers can await.
-export function acceptChoresToSheets(child, chores) {
+export function acceptChoresToApi(child, chores) {
   return Promise.all(chores.map(c =>
-    sheetsGet({
-      action:     'acceptChore',
+    apiPost(`/chores/${c.id}/accept`, {
       child:      child.name,
-      choreId:    c.id,
       choreLabel: c.label,
       bucks:      c.bucks,
     })
@@ -133,16 +117,13 @@ export function acceptChoresToSheets(child, chores) {
 }
 
 export function submitApprovalRequest(child, choreId, choreLabel, bucks) {
-  return sheetsGet({
-    action:     'requestApproval',
+  return apiPost(`/chores/${choreId}/request-approval`, {
     child:      child.name,
-    choreId,
-    choreLabel: encodeURIComponent(choreLabel),
+    choreLabel,
     bucks,
   })
 }
 
-// Dispatch this after any Sheets write to trigger an immediate re-fetch on all hook instances.
 export function triggerChoreRefetch() {
   window.dispatchEvent(new Event(REFETCH_EVENT))
 }
@@ -158,26 +139,19 @@ export function useAssignedChores(childName, chores = []) {
     return () => window.removeEventListener(EVENT, onUpdate)
   }, [childName])
 
-  // Sheets is the source of truth — fetch on mount, poll every 20s, and on demand
+  // API is source of truth — fetch on mount, poll every 20s, and on demand
   useEffect(() => {
     if (!chores.length) return
 
-    if (!CONFIG.appsScriptUrl) {
-      setLoading(false)
-      return
-    }
-
     async function hydrate() {
-      const data = await sheetsGet({ action: 'getChoreState', date: getToday() })
+      const data = await apiGet(`/chores/state?date=${getToday()}`)
       if (!data) { setLoading(false); return }
       hydrateWeeklyFromHistory(data.weekCompleted ?? {}, chores)
-      const built = buildFromSheets(childName, data.today?.[childName] ?? {}, data.weekCompleted ?? {}, chores)
+      const built = buildFromApi(childName, data.today?.[childName] ?? {}, data.weekCompleted ?? {}, chores)
       const all = loadAssignments()
-      // Preserve local pending flags and acceptedAt that Sheets may not have caught up with yet.
-      // Only clear pending once Sheets confirms the chore is completed (approved).
-      const localChores = all[childName] ?? []
+      const localChores  = all[childName] ?? []
       const localPending = new Set(localChores.filter(c => c.pending && !c.completed).map(c => c.id))
-      const localMap = Object.fromEntries(localChores.map(c => [c.id, c]))
+      const localMap     = Object.fromEntries(localChores.map(c => [c.id, c]))
       all[childName] = built.map(c => ({
         ...c,
         pending:    c.pending || (localPending.has(c.id) && !c.completed),

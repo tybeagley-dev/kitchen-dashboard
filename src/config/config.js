@@ -104,7 +104,8 @@ export const CONFIG = {
   // Chore completion awards Beagley Bucks (BB).
   // If appsScriptUrl is empty, demoChores are used and BB are stored locally.
   // See scripts/appsscript.gs for how to connect a Google Sheet.
-  appsScriptUrl: import.meta.env.VITE_APPS_SCRIPT_URL ?? '',  // ← paste your deployed Apps Script URL here
+  appsScriptUrl: import.meta.env.VITE_APPS_SCRIPT_URL ?? '',
+  apiUrl:        import.meta.env.VITE_API_URL ?? '',
 
   demoChores: [],
 

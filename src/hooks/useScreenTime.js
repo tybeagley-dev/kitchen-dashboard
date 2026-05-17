@@ -1,87 +1,45 @@
 import { useState, useEffect, useCallback } from 'react'
 import { CONFIG } from '../config/config'
+import { apiGet, apiPost } from '../utils/api'
 
-const BALANCE_KEY    = 'fam_dash_screentime'
-const TIMER_KEY      = 'fam_dash_timer'
-const SHEETS_POLL_MS = 20 * 1000
+const POLL_MS = 20 * 1000
 
-function loadBalance() {
-  try { return JSON.parse(localStorage.getItem(BALANCE_KEY) ?? '{}') } catch { return {} }
-}
-
-function saveBalance(obj) {
-  localStorage.setItem(BALANCE_KEY, JSON.stringify(obj))
-  window.dispatchEvent(new Event('fam_balance_update'))
-}
-
-function loadTimers() {
-  try {
-    const raw = JSON.parse(localStorage.getItem(TIMER_KEY) ?? '{}')
-    if (!raw || typeof raw !== 'object') return {}
-    // Migrate old single-timer format { child, endTime, … } → { [child]: { … } }
-    if (typeof raw.child === 'string') return { [raw.child]: raw }
-    return raw
-  } catch { return {} }
-}
-
-function saveTimers(obj) {
-  localStorage.setItem(TIMER_KEY, JSON.stringify(obj))
-  window.dispatchEvent(new Event('fam_timer_update'))
-}
-
-function sheetsAddScreenTime(child, delta) {
-  if (!CONFIG.appsScriptUrl) return
-  const url = new URL(CONFIG.appsScriptUrl)
-  url.searchParams.set('action', 'addScreenTime')
-  url.searchParams.set('child', child)
-  url.searchParams.set('delta', delta)
-  url.searchParams.set('_t', Date.now())
-  fetch(url.toString()).catch(() => {})
-}
+function dispatchBalanceUpdate() { window.dispatchEvent(new Event('fam_balance_update')) }
+function dispatchTimerUpdate()   { window.dispatchEvent(new Event('fam_timer_update'))   }
 
 // ── Balance ───────────────────────────────────────────────────────────────────
 
 export function useScreenBalance(childName) {
   const [balance, setBalance] = useState(0)
 
-  // Hydrate from Sheets on mount, then re-poll every 5 minutes
   useEffect(() => {
-    if (!CONFIG.appsScriptUrl) return
     async function load() {
-      try {
-        const url = new URL(CONFIG.appsScriptUrl)
-        url.searchParams.set('action', 'getScreenTime')
-        url.searchParams.set('_t', Date.now())
-        const res  = await fetch(url.toString())
-        const data = await res.json()
-        if (!Array.isArray(data)) return
-        const row = data.find(d => d.child === childName)
-        if (row) {
-          const obj = loadBalance()
-          obj[childName] = row.balance
-          saveBalance(obj)
-          setBalance(row.balance)
-        }
-      } catch { /* fall back to local */ }
+      const data = await apiGet('/screen-time')
+      if (!Array.isArray(data)) return
+      const row = data.find(d => d.child === childName)
+      if (row) setBalance(Number(row.balance))
     }
     load()
-    const id = setInterval(load, SHEETS_POLL_MS)
+    const id = setInterval(load, POLL_MS)
     return () => clearInterval(id)
   }, [childName])
 
-  // Re-read whenever balance changes from any source
   useEffect(() => {
-    const sync = () => setBalance(loadBalance()[childName] ?? 0)
+    async function sync() {
+      const data = await apiGet('/screen-time')
+      if (!Array.isArray(data)) return
+      const row = data.find(d => d.child === childName)
+      if (row) setBalance(Number(row.balance))
+    }
     window.addEventListener('fam_balance_update', sync)
     return () => window.removeEventListener('fam_balance_update', sync)
   }, [childName])
 
   const addMinutes = useCallback((minutes) => {
-    const obj = loadBalance()
-    obj[childName] = (obj[childName] ?? 0) + minutes
-    saveBalance(obj)
-    setBalance(obj[childName])
-    sheetsAddScreenTime(childName, minutes)
+    setBalance(prev => Math.max(0, prev + minutes))
+    apiPost(`/screen-time/${childName}/adjust`, { delta: minutes })
+      .then(data => { if (data?.balance != null) setBalance(Number(data.balance)) })
+    dispatchBalanceUpdate()
   }, [childName])
 
   return { balance, addMinutes }
@@ -89,79 +47,76 @@ export function useScreenBalance(childName) {
 
 // ── Timer ─────────────────────────────────────────────────────────────────────
 
-export function startChildTimer(childName) {
+export async function startChildTimer(childName) {
   const minutesPerChore = CONFIG.screenTime?.minutesPerChore ?? 30
   const bufferMin       = CONFIG.screenTime?.timerBufferMinutes ?? 35
 
-  const obj = loadBalance()
-  const current  = obj[childName] ?? 0
-  const deducted = Math.min(current, minutesPerChore)
-  obj[childName] = Math.max(0, current - deducted)
-  saveBalance(obj)
-  sheetsAddScreenTime(childName, -deducted)
+  // Deduct from balance
+  const stData = await apiGet('/screen-time')
+  const row    = Array.isArray(stData) ? stData.find(d => d.child === childName) : null
+  const current    = row ? Number(row.balance) : 0
+  const deducted   = Math.min(current, minutesPerChore)
+
+  await apiPost(`/screen-time/${childName}/adjust`, { delta: -deducted })
+  dispatchBalanceUpdate()
 
   const totalMs = bufferMin * 60 * 1000
   const endTime = Date.now() + totalMs
-  const timers  = loadTimers()
-  timers[childName] = { child: childName, endTime, deducted, totalMs }
-  saveTimers(timers)
+
+  await apiPost(`/timers/${childName}/start`, { endTime, deductedMinutes: deducted, totalMs })
+  dispatchTimerUpdate()
 }
 
-// childName is required; pass { expired: true } when called from timer expiry.
-export function stopChildTimer(childName, { expired = false } = {}) {
-  const timers = loadTimers()
-  const timer  = timers[childName]
-  if (!expired && timer) {
-    const msLeft  = Math.max(0, timer.endTime - Date.now())
-    const totalMs = timer.totalMs ?? (CONFIG.screenTime?.timerBufferMinutes ?? 35) * 60 * 1000
-    const refund  = Math.round((msLeft / totalMs) * (timer.deducted ?? 0))
-    if (refund > 0) {
-      const obj = loadBalance()
-      obj[childName] = (obj[childName] ?? 0) + refund
-      saveBalance(obj)
-      sheetsAddScreenTime(childName, refund)
-    }
-  }
-  delete timers[childName]
-  saveTimers(timers)
+export async function stopChildTimer(childName, { expired = false } = {}) {
+  await apiPost(`/timers/${childName}/stop`, { expired })
+  dispatchBalanceUpdate()
+  dispatchTimerUpdate()
 }
 
 // ── Active timers (reactive) ──────────────────────────────────────────────────
 
 export function useActiveChildTimers() {
-  const [timers, setTimers] = useState(loadTimers)
-  const [now, setNow]       = useState(Date.now)
+  const [timerMap, setTimerMap] = useState({})
+  const [now, setNow]           = useState(Date.now)
+
+  async function loadTimers() {
+    const data = await apiGet('/timers')
+    if (!Array.isArray(data)) return
+    const map = {}
+    data.forEach(t => { map[t.child] = t })
+    setTimerMap(map)
+  }
 
   useEffect(() => {
-    const sync = () => setTimers(loadTimers())
-    window.addEventListener('fam_timer_update', sync)
-    return () => window.removeEventListener('fam_timer_update', sync)
+    loadTimers()
+    window.addEventListener('fam_timer_update', loadTimers)
+    return () => window.removeEventListener('fam_timer_update', loadTimers)
   }, [])
 
   // Tick every second while any timer is active
   useEffect(() => {
-    if (Object.keys(timers).length === 0) return
+    if (Object.keys(timerMap).length === 0) return
     setNow(Date.now())
     const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [timers])
+  }, [timerMap])
 
-  // Clean up deeply expired timers outside of render
+  // Clean up expired timers
   useEffect(() => {
-    Object.values(timers).forEach(timer => {
-      if (now - timer.endTime > 5000) stopChildTimer(timer.child, { expired: true })
+    Object.values(timerMap).forEach(timer => {
+      if (now - Number(timer.end_time) > 5000) stopChildTimer(timer.child, { expired: true })
     })
-  }, [timers, now])
+  }, [timerMap, now])
 
-  return Object.values(timers).map(timer => {
-    const msLeft   = timer.endTime - now
+  return Object.values(timerMap).map(timer => {
+    const msLeft   = Number(timer.end_time) - now
     const totalSec = Math.max(0, Math.ceil(msLeft / 1000))
     return {
       child:   timer.child,
       minutes: Math.floor(totalSec / 60),
       seconds: totalSec % 60,
       expired: msLeft <= 0,
-      endTime: timer.endTime,
+      endTime: Number(timer.end_time),
     }
   })
 }

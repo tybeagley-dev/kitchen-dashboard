@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import SpinningWheel from './SpinningWheel'
 import BuckBadge from './BuckBadge'
-import { assignChores, acceptChoresToSheets, getClaimedChoreIds, triggerChoreRefetch } from '../hooks/useAssignedChores'
+import { assignChores, acceptChoresToApi, getClaimedChoreIds, triggerChoreRefetch } from '../hooks/useAssignedChores'
 import { isChoreAvailableThisWeek } from '../hooks/useChoreFrequency'
 
 const PHASE = { READY: 'ready', RESULT: 'result', RESPIN: 'respin', CHOOSE: 'choose' }
@@ -57,7 +57,7 @@ export default function ChoreModal({ child, chores = [], onClose, isExtra = fals
     const mapped = bundle.map(c => ({ ...c, completed: false, ...(isExtra && { extra: true }) }))
     assignChores(child.name, mapped)
     onClose()
-    acceptChoresToSheets(child, mapped).then(() => triggerChoreRefetch())
+    acceptChoresToApi(child, mapped).then(() => triggerChoreRefetch())
   }
 
   function handleSpinAgain() {
