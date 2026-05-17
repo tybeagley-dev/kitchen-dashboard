@@ -40,7 +40,7 @@ export default function ChildCard({ child, routines, routinesLoading, chores, ch
   const requiredChores = assignedChores.filter(c => c.required)
   const spinChores     = assignedChores.filter(c => !c.required)
 
-  const allItems = [...routines, ...requiredChores, ...spinChores]
+  const allItems = [...routines, ...requiredChores, ...(isChoreDay() ? spinChores : [])]
   const done     = allItems.filter(r => r.completed).length
   const total    = allItems.length
   const allDone  = total > 0 && done === total
