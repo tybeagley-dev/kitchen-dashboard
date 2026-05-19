@@ -77,6 +77,13 @@ export function getClaimedChoreIds(childName) {
   return ids
 }
 
+export function unassignChore(childName, choreId) {
+  const all = loadAssignments()
+  if (!all[childName]) return
+  all[childName] = all[childName].filter(c => c.id !== choreId)
+  saveAssignments(all)
+}
+
 export function assignChores(childName, newChores) {
   const all         = loadAssignments()
   const existing    = all[childName] ?? []

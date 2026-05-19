@@ -2834,12 +2834,30 @@ button {
   padding: 4px 6px;
 }
 
+.chore-assign-confirm-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 .chore-assign-confirm {
   font-size: 12px;
   color: #4caf50;
-  margin-top: 4px;
-  display: block;
 }
+
+.chore-unassign-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.chore-unassign-btn:hover:not(:disabled) { background: var(--surface-3, #e8ddd4); color: var(--text); }
+.chore-unassign-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .chore-inactive-badge {
   font-size: 10px;

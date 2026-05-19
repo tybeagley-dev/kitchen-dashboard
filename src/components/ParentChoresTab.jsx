@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminGetAllChores, adminAddChore, adminEditChore, adminDeleteChore } from '../hooks/useChores'
-import { apiPost } from '../utils/api'
+import { apiPost, apiDelete } from '../utils/api'
+import { unassignChore } from '../hooks/useAssignedChores'
 import { CONFIG } from '../config/config'
 import BuckBadge from './BuckBadge'
 
@@ -14,8 +15,9 @@ function emptyChore() {
 // ── Chore row in list view ────────────────────────────────────────────────────
 
 function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDelete, onCancelDelete }) {
-  const [assigning, setAssigning] = useState(false)
-  const [assigned,  setAssigned]  = useState('')
+  const [assigning,   setAssigning]   = useState(false)
+  const [assigned,    setAssigned]    = useState(null) // { name, childObj }
+  const [unassigning, setUnassigning] = useState(false)
 
   async function handleAssign(child) {
     await apiPost(`/chores/${chore.id}/accept`, {
@@ -23,9 +25,18 @@ function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDele
       choreLabel: chore.label,
       bucks:      chore.bucks,
     })
-    setAssigned(child.name)
+    setAssigned(child)
     setAssigning(false)
-    setTimeout(() => setAssigned(''), 2000)
+    window.dispatchEvent(new Event('fam_refetch_chores'))
+  }
+
+  async function handleUnassign() {
+    if (!assigned) return
+    setUnassigning(true)
+    await apiDelete(`/chores/${chore.id}/assignment?child=${encodeURIComponent(assigned.name)}`, CONFIG.parentPin)
+    unassignChore(assigned.name, chore.id)
+    setAssigned(null)
+    setUnassigning(false)
     window.dispatchEvent(new Event('fam_refetch_chores'))
   }
 
@@ -62,7 +73,18 @@ function ChoreRow({ chore, onEdit, confirmDelete, onDeleteRequest, onConfirmDele
             <button className="chore-assign-cancel" onClick={() => setAssigning(false)}>Cancel</button>
           </div>
         )}
-        {assigned && <span className="chore-assign-confirm">Assigned to {assigned} ✓</span>}
+        {assigned && (
+          <div className="chore-assign-confirm-row">
+            <span className="chore-assign-confirm">Assigned to {assigned.name} ✓</span>
+            <button
+              className="chore-unassign-btn"
+              onClick={handleUnassign}
+              disabled={unassigning}
+            >
+              {unassigning ? '…' : 'Unassign'}
+            </button>
+          </div>
+        )}
       </div>
       <BuckBadge amount={chore.bucks} />
       {!assigning && !assigned && (
